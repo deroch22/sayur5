@@ -106,6 +106,30 @@ export default function AdminPanel() {
     }
   });
 
+  const API_URL = import.meta.env.VITE_API_URL || "https://sayur5-bl6.pages.dev/api/products";
+
+async function loadFromCloud() {
+  const r = await fetch(API_URL, { mode: "cors" });
+  if (!r.ok) throw new Error(await r.text());
+  const data = await r.json();
+  setProducts(Array.isArray(data) ? data : []);
+  alert("Katalog dimuat dari Cloudflare KV.");
+}
+
+async function publishToCloud() {
+  const r = await fetch(API_URL, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${import.meta.env.VITE_ADMIN_PIN}`, // 555622
+    },
+    body: JSON.stringify(products),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  alert("Katalog berhasil dipublish ke Cloudflare KV.");
+}
+
+
   /* Persist */
   useEffect(() => { localStorage.setItem("sayur5_products", JSON.stringify(products)); }, [products]);
   useEffect(() => { localStorage.setItem("sayur5_orders", JSON.stringify(orders)); }, [orders]);
@@ -151,6 +175,10 @@ export default function AdminPanel() {
     <div className="min-h-screen p-6 bg-slate-50">
       <div className="max-w-5xl mx-auto space-y-8">
         <h1 className="text-2xl font-bold">Admin Panel</h1>
+        <div className="flex gap-2 mt-3">
+          <Button variant="outline" onClick={loadFromCloud}>Load dari Cloud</Button>
+          <Button onClick={publishToCloud}>Publish ke Cloud</Button>
+        </div>
 
         {/* Pengaturan Toko */}
         <section className="border rounded-2xl p-4 bg-white">
