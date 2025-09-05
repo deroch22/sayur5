@@ -22,7 +22,7 @@ const normalizeImage = (s) => {
   if (!v || v.startsWith("data:")) return "";
   return v; // biarkan URL http(s) atau path relatif (img/xxx.jpg)
 };
-
+ 
 function todayKey(d = new Date()) { return d.toISOString().slice(0, 10); }
 
 /** Parser CSV: id,name,desc,stock,image,price (header opsional) */
