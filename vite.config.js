@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import path from "node:path";
 
 export default defineConfig(() => {
+  server: { proxy: { '/api': 'https://sayur5-bl6.pages.dev'
   const isCF = process.env.DEPLOY_TARGET === "cf"; // cf=Cloudflare(admin), gh=GitHub(store)
   return {
     plugins: [react()],
