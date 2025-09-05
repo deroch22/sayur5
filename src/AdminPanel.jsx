@@ -109,7 +109,7 @@ export default function AdminPanel() {
   useEffect(() => { localStorage.setItem("sayur5_orders", JSON.stringify(orders)); }, [orders]);
 
   /* --- API Cloudflare Pages Function --- */
-  const API_URL = import.meta.env.VITE_API_URL || "https://sayur5-bl6.pages.dev/api/products";
+ const API_URL = (import.meta.env.VITE_API_URL ?? "").trim() || "/api/products";
 
   async function loadFromCloud() {
     const r = await fetch(API_URL, { mode: "cors" });
