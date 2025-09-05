@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Edit, Lock, Trash2, ImagePlus, Download } from "lucide-react";
 import { slugify, makeUniqueId } from "@/lib/id";
+import { imgSrc } from "@/utils/img";
 
 
 /* ===== KONSTANTA & HELPERS ===== */
@@ -309,7 +310,7 @@ function AddProductForm({ products, setProducts, basePrice }) {
 
       <div className="md:col-span-5 grid md:grid-cols-3 gap-2 items-end">
         <div className="flex items-center gap-3">
-          <img src={form.image || DEFAULT_IMG} alt="preview" className="w-16 h-16 object-cover rounded-lg border"/>
+         <img src={imgSrc(form.image) /* akan fallback ke default jika "" */} alt="preview" className="w-16 h-16 object-cover rounded-lg border" />
           <div className="grid gap-1 text-sm flex-1">
             <span>URL Gambar</span>
             <Input
@@ -379,7 +380,7 @@ function ProductsManager({ products, setProducts }) {
         <Card key={p.id} className="rounded-2xl">
           <CardContent className="p-3 grid md:grid-cols-12 gap-2 items-center">
             <div className="md:col-span-1">
-              <img src={p.image || DEFAULT_IMG} alt={p.name} className="w-14 h-14 rounded-lg object-cover border" />
+              <img src={imgSrc(form.image) /* akan fallback ke default jika "" */} alt="preview" className="w-16 h-16 object-cover rounded-lg border" />
             </div>
         
             <div className="md:col-span-2">
