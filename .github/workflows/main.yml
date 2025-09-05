@@ -19,21 +19,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
-      # pakai ci jika ada package-lock.json; kalau tidak ada, ganti ke `npm install`
       - run: npm ci
 
-      # (opsional) set env build untuk admin button di Pages
-      # env:
-      #   VITE_ADMIN_ALLOWED_HOSTS: localhost,127.0.0.1,deroch22.github.io
-      #   VITE_ADMIN_PIN: ${{ secrets.VITE_ADMIN_PIN }}
-
       - run: npm run build
+        env:
+          DEPLOY_TARGET: gh                 # memastikan base '/sayur5/'
+          VITE_ADMIN_ALLOWED_HOSTS: localhost,127.0.0.1
+          VITE_ENABLE_ADMIN: "false"        # sembunyikan tombol Admin di Pages
+
+      - run: cp dist/index.html dist/404.html   # penting untuk BrowserRouter
 
       - uses: actions/upload-pages-artifact@v3
         with:
