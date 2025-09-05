@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Edit, Lock, Trash2, ImagePlus, Download } from "lucide-react";
 import { slugify, makeUniqueId } from "@/lib/id";
 import { imgSrc } from "@/utils/img";
+import { safeSetItem, safeJSONSetItem } from "@/utils/safeLS";
 
 
 /* ===== KONSTANTA & HELPERS ===== */
@@ -99,10 +100,13 @@ export default function AdminPanel() {
     localStorage.getItem("sayur5_storePhone") || "6281233115194"
   );
 
-  useEffect(() => { localStorage.setItem("sayur5_price", String(basePrice)); }, [basePrice]);
-  useEffect(() => { localStorage.setItem("sayur5_freeMin", String(freeOngkirMin)); }, [freeOngkirMin]);
-  useEffect(() => { localStorage.setItem("sayur5_ongkir", String(ongkir)); }, [ongkir]);
-  useEffect(() => { localStorage.setItem("sayur5_storePhone", storePhone); }, [storePhone]);
+useEffect(() => { safeJSONSetItem("sayur5_products", products); }, [products]);
+useEffect(() => { safeJSONSetItem("sayur5_orders", orders); }, [orders]);
+useEffect(() => { safeSetItem("sayur5_price", String(basePrice)); }, [basePrice]);
+useEffect(() => { safeSetItem("sayur5_freeMin", String(freeOngkirMin)); }, [freeOngkirMin]);
+useEffect(() => { safeSetItem("sayur5_ongkir", String(ongkir)); }, [ongkir]);
+useEffect(() => { safeSetItem("sayur5_storePhone", storePhone); }, [storePhone]);
+
 
   /* --- Data katalog & pesanan (local cache) --- */
   const [products, setProducts] = useState(() => {
