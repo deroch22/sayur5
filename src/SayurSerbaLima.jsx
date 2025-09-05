@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { imgSrc } from "@/utils/img";
 
 /* ===== Helpers ===== */
 const DEFAULT_BASE_PRICE = 5000;
@@ -305,7 +306,7 @@ useEffect(() => {
               <div className="relative grid grid-cols-3 gap-3">
                 {products.slice(0,6).map((p)=> (
                   <motion.div key={p.id} whileHover={{scale:1.04}} className="p-4 rounded-2xl bg-white shadow-sm border flex flex-col items-center">
-                    <img src={p.image || DEFAULT_IMG} alt={p.name} className="h-14 w-14 object-cover rounded-xl" />
+                   <img src={imgSrc(form.image) /* akan fallback ke default jika "" */} alt="preview" className="w-16 h-16 object-cover rounded-lg border" />
                     <div className="text-xs mt-2 text-center font-medium">{p.name}</div>
                     <div className="text-[10px] text-slate-500">{toIDR(priceOf(p, basePrice))}</div>
                   </motion.div>
@@ -331,7 +332,7 @@ useEffect(() => {
                 <Card className="rounded-2xl overflow-hidden group">
                   <CardHeader className="p-0">
                     <div className="h-28 bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center">
-                      <img src={p.image || DEFAULT_IMG} alt={p.name} className="h-20 w-20 object-cover rounded-xl border" />
+                      <img src={imgSrc(form.image) /* akan fallback ke default jika "" */} alt="preview" className="w-16 h-16 object-cover rounded-lg border" />
                     </div>
                   </CardHeader>
                   <CardContent className="p-4">
