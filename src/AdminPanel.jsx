@@ -111,23 +111,39 @@ export default function AdminPanel() {
   /* --- API Cloudflare Pages Function --- */
  const API_URL = (import.meta.env.VITE_API_URL ?? "").trim() || "/api/products";
 
-  async function loadFromCloud() {
+ async function loadFromCloud() {
+  try {
     const r = await fetch(API_URL, { mode: "cors" });
-    if (!r.ok) throw new Error(await r.text());
-    const data = await r.json();
+    const text = await r.text(); // baca sebagai text dulu buat debugging
+    if (!r.ok) throw new Error(`GET ${r.status}: ${text}`);
+    const data = JSON.parse(text);
     setProducts(Array.isArray(data) ? data : []);
     alert("Katalog dimuat dari Cloudflare KV.");
+  } catch (e) {
+    alert("Gagal load: " + e.message);
+    console.error(e);
   }
+}
 
-  async function publishToCloud() {
+async function publishToCloud() {
+  try {
     const r = await fetch(API_URL, {
       method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${pin}` },
-      body: JSON.stringify(products), // mengganti seluruh katalog di KV
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${pin}`, // gunakan PIN yang diketik
+      },
+      body: JSON.stringify(products),
     });
-    if (!r.ok) throw new Error(await r.text());
+    const text = await r.text();
+    if (!r.ok) throw new Error(`PUT ${r.status}: ${text}`);
     alert("Katalog berhasil dipublish ke Cloudflare KV.");
+  } catch (e) {
+    alert("Gagal publish: " + e.message);
+    console.error(e);
   }
+}
+
 
   // Auto-load setelah login sukses
   useEffect(() => { if (authed) loadFromCloud().catch(() => {}); }, [authed]);
