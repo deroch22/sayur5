@@ -21,16 +21,6 @@ const toIDR = (n) =>
     .format(Number.isFinite(n) ? n : 0);
 
 const DEFAULT_IMG = "img/default.jpg";
-  `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 140'>
-    <defs><linearGradient id='g' x1='0' x2='1'><stop stop-color='#bbf7d0'/><stop stop-color='#ecfeff' offset='1'/></linearGradient></defs>
-    <rect width='100%' height='100%' rx='16' fill='url(#g)'/>
-    <g fill='#047857' font-family='Arial,Helvetica,sans-serif' font-size='18' text-anchor='middle'>
-      <text x='100' y='70' font-weight='700'>FOTO PRODUK</text>
-      <text x='100' y='95' font-size='12'>upload / url</text>
-    </g>
-  </svg>`
-)}`;
-
 const STARTER_PRODUCTS = [
   { id: "bayam", name: "Bayam Fresh", desc: "Dipetik pagi, siap masak bening.", stock: 50 },
   { id: "kangkung", name: "Kangkung", desc: "Crispy untuk cah bawang.", stock: 60 },
