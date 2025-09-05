@@ -23,6 +23,14 @@ const DEFAULT_IMG = `data:image/svg+xml;utf8,${encodeURIComponent(
   </svg>`
 )}`;
 
+// --- helper untuk membersihkan nilai gambar ---
+const normalizeImage = (s) => {
+  const v = (s || "").trim();
+  // kalau ditempel data URL/base64 → kosongkan agar pakai default
+  if (!v || v.startsWith("data:")) return "";
+  return v; // biarkan URL http(s) atau path relatif (img/xxx.jpg)
+};
+
 function todayKey(d = new Date()) { return d.toISOString().slice(0, 10); }
 
 /** Parser CSV: id,name,desc,stock,image,price (header opsional) */
@@ -314,7 +322,7 @@ function AddProductForm({ products, setProducts, basePrice }) {
           <div className="grid gap-1 text-sm flex-1">
             <span>URL Gambar</span>
             <Input
-              placeholder="https://..."
+              placeholder="https://... atau img/nama-file.jpg"
               value={form.image}
               onChange={(e) => setForm({ ...form, image: e.target.value })}
             />
@@ -329,11 +337,12 @@ function AddProductForm({ products, setProducts, basePrice }) {
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (!f) return;
-              const r = new FileReader();
-              r.onload = () => setForm({ ...form, image: String(r.result) });
-              r.readAsDataURL(f);
+              // HANYA simpan path relatif. File-nya harus kamu commit ke public/img
+              setForm({ ...form, image: `img/${f.name}` });
+              alert(`Ingat: upload file "${f.name}" ke folder public/img di repo agar tampil.`);
             }}
           />
+
           <Button type="button" onClick={() => document.getElementById(fileId).click()} className="rounded-xl inline-flex items-center gap-2">
             <ImagePlus className="w-4 h-4" /> Upload Foto
           </Button>
@@ -351,16 +360,17 @@ function AddProductForm({ products, setProducts, basePrice }) {
 
       <div className="md:col-span-5">
         <Button
-          disabled={!canAdd}
-          onClick={() => {
-            const base = slugify(form.name);
-            const id = makeUniqueId(base, products);   // ← buat ID unik
-            setProducts([{ id, ...form }, ...products]);
-            setForm({ name: "", image: "", desc: "", stock: 20, price: basePrice ?? DEFAULT_BASE_PRICE });
-          }}
-        >
-          Tambah Produk
-        </Button>
+            disabled={!canAdd}
+            onClick={() => {
+              if (exists(form.id)) return alert("ID sudah dipakai, gunakan ID lain.");
+              const toSave = { ...form, image: normalizeImage(form.image) };
+              setProducts([ toSave, ...products ]);
+              setForm({ id:"", name:"", image:"", desc:"", stock:20, price: basePrice ?? DEFAULT_BASE_PRICE });
+            }}
+          >
+            Tambah Produk
+          </Button>
+
         {!canAdd && <span className="text-xs text-slate-500 ml-2">Isi nama produk dulu.</span>}
       </div>
     </div>
@@ -412,7 +422,7 @@ function ProductsManager({ products, setProducts }) {
             </div>
             <div className="md:col-span-12">
               <div className="text-[11px] text-slate-500 mb-1">URL Gambar</div>
-              <Input value={p.image || ""} onChange={(e)=>update(p.id, { image: e.target.value })} placeholder="https://..." />
+              <Input value={p.image || ""} placeholder="https://... atau img/nama-file.jpg" onChange={(e) => update(p.id, { image: normalizeImage(e.target.value) })}/>
               <div className="text-[11px] text-slate-500 mt-2">Deskripsi</div>
               <Input value={p.desc || ""} onChange={(e)=>update(p.id, { desc: e.target.value })} placeholder="deskripsi singkat" />
             </div>
