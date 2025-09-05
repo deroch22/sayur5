@@ -63,25 +63,6 @@ function parseCSV(text) {
   return out;
 }
 
-function slugify(s = "") {
-  return s
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w]+/g, "-")   // non-alnum → "-"
-    .replace(/-+/g, "-")       // duplikat "-" → satu
-    .replace(/^-|-$/g, "");    // trim "-"
-}
-
-function makeUniqueId(base, products) {
-  let id = base || "item";
-  if (!products.some(p => p.id === id)) return id;
-  let i = 2;
-  while (products.some(p => p.id === `${id}-${i}`)) i++;
-  return `${id}-${i}`;
-}
-
-
-
 /* ===== KOMPONEN UTAMA ===== */
 export default function AdminPanel() {
   /* --- Auth --- */
