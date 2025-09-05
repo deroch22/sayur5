@@ -1,14 +1,21 @@
 // vite.config.js
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'node:path'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "node:path";
 
 export default defineConfig(() => {
-  // kalau dulu kamu pakai base dinamis, pastikan build GH memberi DEPLOY_TARGET=gh
+  const isCF = process.env.DEPLOY_TARGET === "cf"; // cf=Cloudflare(admin), gh=GitHub(store)
   return {
     plugins: [react()],
-    base: '/sayur5/',                               // <— WAJIB untuk GitHub Pages (project repo)
-    resolve: { alias: { '@': path.resolve(__dirname, './src') } },
-    build: { outDir: 'dist' },
-  }
-})
+    base: isCF ? "/" : "/sayur5/",
+    resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
+    build: {
+      outDir: "dist",
+      rollupOptions: {
+        input: isCF
+          ? { admin: path.resolve(__dirname, "admin/index.html") } // Cloudflare: admin only
+          : { main: path.resolve(__dirname, "index.html") },       // GitHub: store only
+      },
+    },
+  };
+});
