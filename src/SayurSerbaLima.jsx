@@ -20,7 +20,7 @@ const toIDR = (n) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 })
     .format(Number.isFinite(n) ? n : 0);
 
-const DEFAULT_IMG = `data:image/svg+xml;utf8,${encodeURIComponent(
+const DEFAULT_IMG = "img/default.jpg";
   `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 140'>
     <defs><linearGradient id='g' x1='0' x2='1'><stop stop-color='#bbf7d0'/><stop stop-color='#ecfeff' offset='1'/></linearGradient></defs>
     <rect width='100%' height='100%' rx='16' fill='url(#g)'/>
