@@ -95,6 +95,21 @@ export default function SayurSerbaLima() {
       return STARTER_PRODUCTS;
     }
   });
+
+useEffect(() => {
+  const url = import.meta.env.VITE_API_URL || "https://sayur5-bl6.pages.dev/api/products";
+  fetch(url, { mode: "cors" })
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => {
+      if (Array.isArray(data) && data.length) {
+        setProducts(data); // timpa data default / localStorage
+      }
+    })
+    .catch(() => {
+      // fallback: biarkan pakai localStorage / starter catalog
+    });
+}, []);
+  
   const [orders, setOrders] = useState(() => {
     try {
       const raw = localStorage.getItem("sayur5_orders");
