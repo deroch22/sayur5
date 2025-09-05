@@ -5,7 +5,7 @@ import path from 'node:path'
 
 export default defineConfig({
   plugins: [react()],
-  base: './',                // <- penting untuk GitHub Pages agar tidak 404
+  base: '/sayur5/', // ← repo name
   resolve: { alias: { '@': path.resolve(__dirname, './src') } },
   build: { outDir: 'dist', sourcemap: false },
 })
