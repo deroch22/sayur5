@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Edit, Lock, Trash2, ImagePlus, Download } from "lucide-react";
+import { slugify, makeUniqueId } from "@/lib/id";
+
 
 /* ===== KONSTANTA & HELPERS ===== */
 const ADMIN_PIN_FALLBACK = "555622";
@@ -60,6 +62,25 @@ function parseCSV(text) {
   }
   return out;
 }
+
+function slugify(s = "") {
+  return s
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w]+/g, "-")   // non-alnum → "-"
+    .replace(/-+/g, "-")       // duplikat "-" → satu
+    .replace(/^-|-$/g, "");    // trim "-"
+}
+
+function makeUniqueId(base, products) {
+  let id = base || "item";
+  if (!products.some(p => p.id === id)) return id;
+  let i = 2;
+  while (products.some(p => p.id === `${id}-${i}`)) i++;
+  return `${id}-${i}`;
+}
+
+
 
 /* ===== KOMPONEN UTAMA ===== */
 export default function AdminPanel() {
@@ -240,44 +261,52 @@ export default function AdminPanel() {
 }
 
 /* ===== SUB-KOMPONEN ===== */
-function AddProductForm({ products, setProducts, basePrice = DEFAULT_BASE_PRICE }) {
-  const [form, setForm] = useState({ id:"", name:"", image:"", desc:"", stock:20, price: basePrice });
-  const exists = (id)=> products.some(p=>p.id === id);
-  const canAdd = form.id.trim() && form.name.trim() && !exists(form.id);
-  const fileId = "file_"+Math.random().toString(36).slice(2);
+function AddProductForm({ products, setProducts, basePrice }) {
+  const [form, setForm] = useState({
+    name: "",
+    image: "",
+    desc: "",
+    stock: 20,
+    price: basePrice ?? DEFAULT_BASE_PRICE,
+  });
+
+  const canAdd = form.name.trim().length > 0;
+  const fileId = "file_" + Math.random().toString(36).slice(2);
 
   return (
     <div className="grid md:grid-cols-5 gap-2 items-end">
-      <label className="grid gap-1 text-sm md:col-span-1">
-        <span>ID</span>
-        <Input
-          placeholder="bayam-merah"
-          value={form.id}
-          onChange={(e)=>setForm({...form, id: e.target.value.trim().toLowerCase()})}
-        />
-      </label>
+      {/* (HAPUS) input ID */}
+
       <label className="grid gap-1 text-sm md:col-span-2">
         <span>Nama</span>
         <Input
           placeholder="Nama produk"
           value={form.name}
-          onChange={(e)=>setForm({...form, name: e.target.value})}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
         />
       </label>
+
       <label className="grid gap-1 text-sm md:col-span-1">
         <span>Harga (IDR)</span>
         <Input
           type="number"
           value={form.price}
-          onChange={(e)=>{ const v = parseInt(e.target.value,10); setForm({...form, price: Number.isFinite(v)&&v>=0?v:0}); }}
+          onChange={(e) => {
+            const v = parseInt(e.target.value, 10);
+            setForm({ ...form, price: Number.isFinite(v) && v >= 0 ? v : 0 });
+          }}
         />
       </label>
+
       <label className="grid gap-1 text-sm md:col-span-1">
         <span>Stok</span>
         <Input
           type="number"
           value={form.stock}
-          onChange={(e)=>{ const v = parseInt(e.target.value,10); setForm({...form, stock: Number.isFinite(v)&&v>=0?v:0}); }}
+          onChange={(e) => {
+            const v = parseInt(e.target.value, 10);
+            setForm({ ...form, stock: Number.isFinite(v) && v >= 0 ? v : 0 });
+          }}
         />
       </label>
 
@@ -286,7 +315,11 @@ function AddProductForm({ products, setProducts, basePrice = DEFAULT_BASE_PRICE 
           <img src={form.image || DEFAULT_IMG} alt="preview" className="w-16 h-16 object-cover rounded-lg border"/>
           <div className="grid gap-1 text-sm flex-1">
             <span>URL Gambar</span>
-            <Input placeholder="https://..." value={form.image} onChange={(e)=>setForm({...form, image: e.target.value})}/>
+            <Input
+              placeholder="https://..."
+              value={form.image}
+              onChange={(e) => setForm({ ...form, image: e.target.value })}
+            />
           </div>
         </div>
         <div>
@@ -295,35 +328,47 @@ function AddProductForm({ products, setProducts, basePrice = DEFAULT_BASE_PRICE 
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={(e)=>{ const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=()=> setForm({...form, image: String(r.result)}); r.readAsDataURL(f); }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const r = new FileReader();
+              r.onload = () => setForm({ ...form, image: String(r.result) });
+              r.readAsDataURL(f);
+            }}
           />
-          <Button type="button" onClick={()=>document.getElementById(fileId).click()} className="rounded-xl inline-flex items-center gap-2">
-            <ImagePlus className="w-4 h-4"/> Upload Foto
+          <Button type="button" onClick={() => document.getElementById(fileId).click()} className="rounded-xl inline-flex items-center gap-2">
+            <ImagePlus className="w-4 h-4" /> Upload Foto
           </Button>
         </div>
       </div>
 
       <label className="grid gap-1 text-sm md:col-span-5">
         <span>Deskripsi (opsional)</span>
-        <Input placeholder="panen pagi, segar untuk sop" value={form.desc} onChange={(e)=>setForm({...form, desc: e.target.value})}/>
+        <Input
+          placeholder="panen pagi, segar untuk sop"
+          value={form.desc}
+          onChange={(e) => setForm({ ...form, desc: e.target.value })}
+        />
       </label>
 
       <div className="md:col-span-5">
         <Button
           disabled={!canAdd}
-          onClick={()=>{
-            if (exists(form.id)) return alert("ID sudah dipakai.");
-            setProducts([{...form}, ...products]);
-            setForm({ id:"", name:"", image:"", desc:"", stock:20, price: basePrice });
+          onClick={() => {
+            const base = slugify(form.name);
+            const id = makeUniqueId(base, products);   // ← buat ID unik
+            setProducts([{ id, ...form }, ...products]);
+            setForm({ name: "", image: "", desc: "", stock: 20, price: basePrice ?? DEFAULT_BASE_PRICE });
           }}
         >
           Tambah Produk
         </Button>
-        {!canAdd && <span className="text-xs text-slate-500 ml-2">Isi ID & Nama (ID unik).</span>}
+        {!canAdd && <span className="text-xs text-slate-500 ml-2">Isi nama produk dulu.</span>}
       </div>
     </div>
   );
 }
+
 
 function ProductsManager({ products, setProducts }) {
   const update = (id, patch) => setProducts(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
@@ -339,10 +384,12 @@ function ProductsManager({ products, setProducts }) {
             <div className="md:col-span-1">
               <img src={p.image || DEFAULT_IMG} alt={p.name} className="w-14 h-14 rounded-lg object-cover border" />
             </div>
+        
             <div className="md:col-span-2">
-              <div className="text-[11px] text-slate-500">ID</div>
+              <div className="text-[11px] text-slate-500">ID (otomatis)</div>
               <div className="text-xs font-mono break-all">{p.id}</div>
             </div>
+
             <div className="md:col-span-3">
               <div className="text-[11px] text-slate-500">Nama</div>
               <Input value={p.name} onChange={(e)=>update(p.id, { name: e.target.value })} />
