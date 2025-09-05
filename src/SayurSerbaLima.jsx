@@ -305,11 +305,24 @@ useEffect(() => {
               <div className="absolute -inset-4 bg-emerald-200/40 blur-2xl rounded-[2rem]"></div>
               <div className="relative grid grid-cols-3 gap-3">
                 {products.slice(0,6).map((p)=> (
-                  <motion.div key={p.id} whileHover={{scale:1.04}} className="p-4 rounded-2xl bg-white shadow-sm border flex flex-col items-center">
-                   <img src={imgSrc(p.image || 'img/default.jpg')} alt={p.name} />
-                    <div className="text-xs mt-2 text-center font-medium">{p.name}</div>
-                    <div className="text-[10px] text-slate-500">{toIDR(priceOf(p, basePrice))}</div>
-                  </motion.div>
+                  <motion.div key={p.id} whileHover={{ scale: 1.04 }} className="p-4 rounded-2xl bg-white shadow-sm border flex flex-col items-center">
+                  <img
+                    src={imgSrc(p.image || "img/default.jpg")}
+                    alt={p.name}
+                    className="h-14 w-14 object-cover rounded-xl"
+                    loading="lazy"
+                    decoding="async"
+                    onError={(e) => {
+                      if (!e.currentTarget.dataset.fallback) {
+                        e.currentTarget.dataset.fallback = "1";
+                        e.currentTarget.src = imgSrc("img/default.jpg");
+                      }
+                    }}
+                  />
+                  <div className="text-xs mt-2 text-center font-medium">{p.name}</div>
+                  <div className="text-[10px] text-slate-500">{toIDR(priceOf(p, basePrice))}</div>
+                </motion.div>
+
                 ))}
               </div>
             </div>
@@ -331,10 +344,23 @@ useEffect(() => {
               <motion.div key={p.id} layout initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} exit={{opacity:0}}>
                 <Card className="rounded-2xl overflow-hidden group">
                   <CardHeader className="p-0">
-                    <div className="h-28 bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center">
-                     <img src={imgSrc(p.image || 'img/default.jpg')} alt={p.name} />
-                    </div>
-                  </CardHeader>
+                  <div className="h-28 bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center">
+                    <img
+                      src={imgSrc(p.image || "img/default.jpg")}
+                      alt={p.name}
+                      className="h-20 w-20 object-cover rounded-xl border"
+                      loading="lazy"
+                      decoding="async"
+                      onError={(e) => {
+                        if (!e.currentTarget.dataset.fallback) {
+                          e.currentTarget.dataset.fallback = "1";
+                          e.currentTarget.src = imgSrc("img/default.jpg");
+                        }
+                      }}
+                    />
+                  </div>
+                </CardHeader>
+
                   <CardContent className="p-4">
                     <CardTitle className="text-base font-semibold leading-tight">{p.name}</CardTitle>
                     <div className="text-xs text-slate-500 mt-1 line-clamp-2">{p.desc}</div>
