@@ -148,11 +148,22 @@ async function publishToCloud() {
   }
 }
 
+  
 
   // Auto-load setelah login sukses
   useEffect(() => { if (authed) loadFromCloud().catch(() => {}); }, [authed]);
 
   const login = () => (pin === ADMIN_PIN ? setAuthed(true) : alert("PIN salah"));
+
+  function stripBase64Images() {
+  setProducts(prev =>
+    prev.map(p => ({
+      ...p,
+      image: /^(data:|blob:)/.test(p.image || '') ? '' : (p.image || '') // kosongkan → fallback ke default
+    }))
+  );
+}
+
 
   /* ======= RENDER: Halaman PIN ======= */
   if (!authed) {
@@ -184,6 +195,10 @@ async function publishToCloud() {
           <h1 className="text-2xl font-bold">Admin Panel</h1>
           <div className="flex gap-2">
             <Button variant="outline" onClick={loadFromCloud}>Load dari Cloud</Button>
+            <Button variant="outline" onClick={stripBase64Images}>
+              Bersihkan Foto Base64
+            </Button>
+
             <Button onClick={publishToCloud}>Publish ke Cloud</Button>
           </div>
         </div>
