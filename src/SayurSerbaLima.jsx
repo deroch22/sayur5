@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShoppingCart, Leaf, Search, Truck, BadgePercent, Phone, MapPin,
-  CreditCard, X, Plus, Minus, Edit, Lock, Download, ImagePlus, Trash2
+  CreditCard, X, Plus, Minus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,40 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { useLocation, useNavigate } from "react-router-dom";
 
-/* Host yang boleh melihat TOMBOL Admin (opsional – untuk dev/local saja) */
-const ADMIN_ALLOWED_HOSTS = (import.meta.env.VITE_ADMIN_ALLOWED_HOSTS || "localhost,127.0.0.1").split(",");
-
-/* Helper: format rupiah (tahan NaN/undefined) */
-const toIDR = (n) => {
-  const x = Number.isFinite(n) ? n : 0;
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0
-  }).format(x);
-};
-
-/* Konstanta & helper telepon */
+/* ===== Helpers ===== */
 const DEFAULT_BASE_PRICE = 5000;
-const ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN || "555622";
 
-function toWA(msisdn) {
-  // Normalisasi ke 62xxxxxxxxx
-  let d = String(msisdn || "").replace(/\D/g, "");
-  if (d.startsWith("0")) d = "62" + d.slice(1);
-  else if (d.startsWith("8")) d = "62" + d;
-  else if (d.startsWith("+")) d = d.slice(1);
-  return d;
-}
-function isValidIndoPhone(s) {
-  const d = String(s || "").replace(/\D/g, "");
-  // 08xxxxxxxx(10–13 digit) atau 62xxxxxxxx
-  return /^0?8\d{8,12}$/.test(d) || /^62?8\d{8,12}$/.test(d);
-}
+const toIDR = (n) =>
+  new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 })
+    .format(Number.isFinite(n) ? n : 0);
 
-/* Placeholder gambar default (SVG inline) */
 const DEFAULT_IMG = `data:image/svg+xml;utf8,${encodeURIComponent(
   `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 140'>
     <defs><linearGradient id='g' x1='0' x2='1'><stop stop-color='#bbf7d0'/><stop stop-color='#ecfeff' offset='1'/></linearGradient></defs>
@@ -56,7 +30,6 @@ const DEFAULT_IMG = `data:image/svg+xml;utf8,${encodeURIComponent(
   </svg>`
 )}`;
 
-/* Starter katalog */
 const STARTER_PRODUCTS = [
   { id: "bayam", name: "Bayam Fresh", desc: "Dipetik pagi, siap masak bening.", stock: 50 },
   { id: "kangkung", name: "Kangkung", desc: "Crispy untuk cah bawang.", stock: 60 },
@@ -66,62 +39,31 @@ const STARTER_PRODUCTS = [
   { id: "buncis", name: "Buncis", desc: "Muda & empuk.", stock: 55 },
 ];
 
-/* Helpers */
-function computeShippingFee(subtotal, freeMin, fee) { return subtotal === 0 || subtotal >= freeMin ? 0 : fee; }
-function todayKey(d = new Date()) { return d.toISOString().slice(0, 10); }
+const computeShippingFee = (subtotal, freeMin, fee) =>
+  subtotal === 0 || subtotal >= freeMin ? 0 : fee;
+
 const priceOf = (p, basePrice) => (typeof p?.price === "number" && p.price > 0 ? p.price : basePrice);
 
-/* Parser CSV sederhana: id,name,desc,stock,image|url,price|harga (header opsional) */
-function parseCSV(text) {
-  const rows = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (rows.length === 0) return [];
-  const first = rows[0].toLowerCase();
-  const hasHeader = /id|name|nama|desc|stok|stock|image|gambar|foto|photo|url|price|harga/.test(first);
-  const start = hasHeader ? 1 : 0;
+const toWA = (msisdn) => {
+  let d = String(msisdn || "").replace(/\D/g, "");
+  if (d.startsWith("0")) d = "62" + d.slice(1);
+  else if (d.startsWith("8")) d = "62" + d;
+  else if (d.startsWith("+")) d = d.slice(1);
+  return d;
+};
+const isValidIndoPhone = (s) => {
+  const d = String(s || "").replace(/\D/g, "");
+  return /^0?8\d{8,12}$/.test(d) || /^62?8\d{8,12}$/.test(d);
+};
 
-  const splitLine = (line) => {
-    const res = []; let cur = ""; let inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') { inQ = !inQ; continue; }
-      if (ch === "," && !inQ) { res.push(cur); cur = ""; } else { cur += ch; }
-    }
-    res.push(cur);
-    return res.map((s) => s.trim());
-  };
-
-  const header = hasHeader ? splitLine(rows[0]).map((h) => h.toLowerCase())
-                           : ["id","name","desc","stock","image","price"];
-
-  const out = [];
-  for (let i = start; i < rows.length; i++) {
-    const cols = splitLine(rows[i]); const rec = {}; header.forEach((h, idx) => rec[h] = cols[idx]);
-    const id = (rec.id || rec["kode"] || rec["sku"] || (rec.name || rec["nama"] || "").toLowerCase().replace(/\s+/g, "-")).toLowerCase();
-    const name = rec.name || rec["nama"] || id;
-    const desc = rec.desc || rec["deskripsi"] || "";
-    const stock = parseInt(rec.stock || rec["stok"] || 0) || 0;
-    const image = rec.image || rec["gambar"] || rec["foto"] || rec["photo"] || rec["url"] || "";
-    const price = parseInt(rec.price || rec["harga"] || "") || undefined;
-    const recOut = { id, name, desc, stock, image };
-    if (price) recOut.price = price;
-    out.push(recOut);
-  }
-  return out;
-}
-
-export default function SayurSerbaLima({ adminOnly = false }) {
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  // Route dianggap admin jika prop adminOnly=true ATAU URL diawali /admin
-  const isAdminRoute = adminOnly || location.pathname.startsWith("/admin");
-
-  // ===== STATE DASAR =====
+/* ===== Component ===== */
+export default function SayurSerbaLima() {
+  // UI state
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState({});
   const [openCheckout, setOpenCheckout] = useState(false);
 
-  // ===== PENGATURAN TOKO (+ persist) =====
+  // Settings (persist)
   const [freeOngkirMin, setFreeOngkirMin] = useState(() => {
     const v = parseInt(localStorage.getItem("sayur5_freeMin") ?? "30000", 10);
     return Number.isFinite(v) ? v : 30000;
@@ -143,7 +85,7 @@ export default function SayurSerbaLima({ adminOnly = false }) {
   useEffect(() => { localStorage.setItem("sayur5_price", String(basePrice)); }, [basePrice]);
   useEffect(() => { localStorage.setItem("sayur5_storePhone", String(storePhone)); }, [storePhone]);
 
-  // ===== PRODUCTS (aman dari JSON korup) =====
+  // Data (persist)
   const [products, setProducts] = useState(() => {
     try {
       const raw = localStorage.getItem("sayur5_products");
@@ -153,8 +95,6 @@ export default function SayurSerbaLima({ adminOnly = false }) {
       return STARTER_PRODUCTS;
     }
   });
-
-  // ===== ORDERS (aman dari JSON korup) =====
   const [orders, setOrders] = useState(() => {
     try {
       const raw = localStorage.getItem("sayur5_orders");
@@ -164,43 +104,33 @@ export default function SayurSerbaLima({ adminOnly = false }) {
       return [];
     }
   });
-
-  // ===== PERSIST CATALOG & ORDERS =====
   useEffect(() => { localStorage.setItem("sayur5_products", JSON.stringify(products)); }, [products]);
   useEffect(() => { localStorage.setItem("sayur5_orders", JSON.stringify(orders)); }, [orders]);
 
-  // ===== ADMIN DIALOG =====
-  const [openAdmin, setOpenAdmin] = useState(false);
-  const [adminAuthed, setAdminAuthed] = useState(false);
-  const showAdminButton = import.meta.env.DEV || ADMIN_ALLOWED_HOSTS.includes(window.location.hostname);
-  useEffect(() => { if (isAdminRoute) setOpenAdmin(true); }, [isAdminRoute]);
-
-  // Bersihkan keranjang jika ada id yang tidak ada di katalog
+  // Sanitize cart when products change
   useEffect(() => {
     setCart((c) => {
       const valid = new Set(products.map((p) => p.id));
       const next = { ...c };
-      for (const id of Object.keys(next)) {
-        if (!valid.has(id)) delete next[id];
-      }
+      for (const id of Object.keys(next)) if (!valid.has(id)) delete next[id];
       return next;
     });
   }, [products]);
 
-  // ====== DERIVED ======
+  // Derived
   const filtered = useMemo(() => {
     const q = (query || "").toLowerCase().trim();
     if (!q) return products;
-    return products.filter((p) => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q));
+    return products.filter((p) =>
+      p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)
+    );
   }, [query, products]);
 
   const items = useMemo(() => {
     return Object.entries(cart).map(([id, qty]) => {
       const p = products.find((x) => x.id === id);
       const price = p ? priceOf(p, basePrice) : basePrice;
-      return p
-        ? { ...p, id, qty, price }
-        : { id, name: "(produk tidak tersedia)", qty, price: basePrice };
+      return p ? { ...p, id, qty, price } : { id, name: "(produk tidak tersedia)", qty, price: basePrice };
     });
   }, [cart, products, basePrice]);
 
@@ -209,7 +139,7 @@ export default function SayurSerbaLima({ adminOnly = false }) {
   const grandTotal = subtotal + shippingFee;
   const totalQty = useMemo(() => items.reduce((s, it) => s + it.qty, 0), [items]);
 
-  // ====== CART OPS ======
+  // Cart ops
   const add = (id) =>
     setCart((c) => {
       const current = Number.isFinite(parseInt(c[id], 10)) ? parseInt(c[id], 10) : 0;
@@ -230,7 +160,7 @@ export default function SayurSerbaLima({ adminOnly = false }) {
 
   const clearCart = () => setCart({});
 
-  // ====== CHECKOUT HANDLER ======
+  // Checkout handler
   const createOrder = (payload) => {
     const { name, phone, address, payment, note } = payload;
     const order = {
@@ -249,21 +179,7 @@ export default function SayurSerbaLima({ adminOnly = false }) {
     clearCart();
   };
 
-  // ====== RUNTIME TESTS ======
-  useEffect(() => {
-    try {
-      console.group("Sayur5 runtime tests");
-      console.assert(/Rp/.test(toIDR(5000)), "toIDR harus menyertakan Rp");
-      console.assert(computeShippingFee(30000, 30000, 10000) === 0, "Gratis ongkir saat subtotal = min");
-      console.assert(computeShippingFee(0, 30000, 10000) === 0, "Gratis ongkir saat subtotal 0");
-      console.assert(computeShippingFee(25000, 30000, 10000) === 10000, "Ongkir di bawah min");
-      console.groupEnd();
-    } catch (e) {
-      console.error("Runtime tests failed:", e);
-    }
-  }, []);
-
-  // ====== UI ======
+  // UI
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white text-slate-800">
       {/* Topbar */}
@@ -282,7 +198,7 @@ export default function SayurSerbaLima({ adminOnly = false }) {
             </div>
           </div>
 
-          {/* Desktop: search + badges + admin + cart */}
+          {/* Desktop controls */}
           <div className="hidden md:flex items-center gap-3">
             <div className="relative w-72">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -300,17 +216,6 @@ export default function SayurSerbaLima({ adminOnly = false }) {
               <BadgePercent className="w-3 h-3" /> Gratis ongkir min {toIDR(freeOngkirMin)}
             </Badge>
 
-            {/* TOMBOL ADMIN — hanya tampil jika diizinkan */}
-            {showAdminButton && (
-              <Button
-                variant="outline"
-                className="rounded-2xl flex items-center gap-2"
-                onClick={() => setOpenAdmin(true)}
-              >
-                <Edit className="w-4 h-4" /> Admin Panel
-              </Button>
-            )}
-
             <CartSheet
               items={items}
               totalQty={totalQty}
@@ -326,7 +231,7 @@ export default function SayurSerbaLima({ adminOnly = false }) {
             />
           </div>
 
-          {/* Mobile: search + cart */}
+          {/* Mobile controls */}
           <div className="md:hidden flex items-center gap-2">
             <Sheet>
               <SheetTrigger asChild>
@@ -406,7 +311,7 @@ export default function SayurSerbaLima({ adminOnly = false }) {
         </div>
         <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           <AnimatePresence>
-          {filtered.map((p) => (
+            {filtered.map((p) => (
               <motion.div key={p.id} layout initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} exit={{opacity:0}}>
                 <Card className="rounded-2xl overflow-hidden group">
                   <CardHeader className="p-0">
@@ -437,8 +342,8 @@ export default function SayurSerbaLima({ adminOnly = false }) {
                     </div>
                   </CardContent>
                 </Card>
-            </motion.div>
-          ))}
+              </motion.div>
+            ))}
           </AnimatePresence>
         </div>
       </section>
@@ -462,7 +367,7 @@ export default function SayurSerbaLima({ adminOnly = false }) {
         </div>
       </footer>
 
-      {/* Checkout Dialog */}
+      {/* Checkout */}
       <Dialog open={openCheckout} onOpenChange={setOpenCheckout}>
         <DialogContent className="sm:max-w-lg rounded-2xl">
           <DialogHeader><DialogTitle>Checkout</DialogTitle></DialogHeader>
@@ -480,352 +385,14 @@ export default function SayurSerbaLima({ adminOnly = false }) {
           )}
         </DialogContent>
       </Dialog>
-
-      {/* ===== Admin Panel: hanya mount saat /admin ===== */}
-      {isAdminRoute && (
-        <Dialog
-          open={openAdmin}
-          onOpenChange={(v) => {
-            setOpenAdmin(v);
-            if (!v) {
-              setAdminAuthed(false);
-              navigate("/"); // tutup dialog → kembali ke beranda
-            }
-          }}
-        >
-          <DialogContent className="sm:max-w-4xl rounded-2xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Edit className="w-5 h-5" /> Admin Panel
-              </DialogTitle>
-            </DialogHeader>
-
-            {!adminAuthed ? (
-              /* ====== AUTH PIN ====== */
-              <div className="grid gap-3">
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <Lock className="w-4 h-4" /> Masukkan PIN untuk melanjutkan
-                </div>
-                <div className="flex gap-2">
-                  <Input type="password" placeholder="PIN" id="sayur5_pin" className="max-w-xs" />
-                  <Button
-                    onClick={() => {
-                      const v = document.getElementById("sayur5_pin").value;
-                      if (v === ADMIN_PIN) setAdminAuthed(true);
-                      else alert("PIN salah");
-                    }}
-                  >
-                    Masuk
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              /* ====== ISI ADMIN ====== */
-              <div className="space-y-8">
-                {/* Pengaturan Toko */}
-                <section className="border rounded-2xl p-4">
-                  <h3 className="font-semibold mb-3">Pengaturan Toko</h3>
-                  <div className="grid md:grid-cols-4 gap-3">
-                    <label className="grid gap-1 text-sm">
-                      <span>Harga Dasar (IDR)</span>
-                      <Input type="number" value={basePrice} onChange={(e)=>setBasePrice(Math.max(0, parseInt(e.target.value||"0",10)))} />
-                    </label>
-                    <label className="grid gap-1 text-sm">
-                      <span>Min. Gratis Ongkir</span>
-                      <Input type="number" value={freeOngkirMin} onChange={(e)=>setFreeOngkirMin(Math.max(0, parseInt(e.target.value||"0",10)))} />
-                    </label>
-                    <label className="grid gap-1 text-sm">
-                      <span>Biaya Ongkir</span>
-                      <Input type="number" value={ongkir} onChange={(e)=>setOngkir(Math.max(0, parseInt(e.target.value||"0",10)))} />
-                    </label>
-                    <label className="grid gap-1 text-sm">
-                      <span>No. WA Toko</span>
-                      <Input value={storePhone} onChange={(e)=>setStorePhone(e.target.value)} placeholder="08xxxxxxxxxx" />
-                    </label>
-                  </div>
-                  <div className="text-xs text-slate-500 mt-2">Semua pengaturan otomatis tersimpan (localStorage).</div>
-                </section>
-
-                {/* Tambah Produk */}
-                <section className="border rounded-2xl p-4">
-                  <h3 className="font-semibold mb-3">Tambah Produk Baru</h3>
-                  <AddProductForm products={products} setProducts={setProducts} basePrice={basePrice} />
-                </section>
-
-                {/* Daftar & Edit Produk */}
-                <section className="border rounded-2xl p-4">
-                  <h3 className="font-semibold mb-3">Daftar Produk (Edit / Hapus)</h3>
-                  <ProductsManager products={products} setProducts={setProducts} />
-                </section>
-
-                {/* Import CSV */}
-                <section className="border rounded-2xl p-4">
-                  <h3 className="font-semibold mb-3">Import Katalog (CSV)</h3>
-                  <ImportCSV products={products} setProducts={setProducts} />
-                </section>
-
-                {/* Unduh CSV Pesanan */}
-                {orders.length > 0 && (
-                  <div className="mt-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => downloadCSV(orders)}
-                      className="rounded-xl inline-flex items-center gap-2"
-                    >
-                      <Download className="w-4 h-4" /> Unduh CSV Pesanan
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }
 
-/** Form Tambah Produk */
-function AddProductForm({ products, setProducts, basePrice }){
-  const [form, setForm] = useState({ id:"", name:"", image:"", desc:"", stock:20, price: basePrice || DEFAULT_BASE_PRICE });
-  const exists = (id)=> products.some(p=>p.id===id);
-  const canAdd = form.id.trim() && form.name.trim() && !exists(form.id);
-  const fileId = "file_"+Math.random().toString(36).slice(2);
-
-  return (
-    <div className="grid md:grid-cols-5 gap-2 items-end">
-      <label className="grid gap-1 text-sm md:col-span-1">
-        <span>ID</span>
-        <Input placeholder="contoh: bayam-merah" value={form.id} onChange={(e)=>setForm({...form, id:e.target.value.trim().toLowerCase()})}/>
-      </label>
-      <label className="grid gap-1 text-sm md:col-span-2">
-        <span>Nama</span>
-        <Input placeholder="Nama produk" value={form.name} onChange={(e)=>setForm({...form, name:e.target.value})}/>
-      </label>
-      <label className="grid gap-1 text-sm md:col-span-1">
-        <span>Harga (IDR)</span>
-        <Input type="number" value={form.price} onChange={(e)=>{ const v=parseInt(e.target.value,10); setForm({...form, price: Number.isFinite(v)&&v>=0?v:0}); }}/>
-      </label>
-      <label className="grid gap-1 text-sm md:col-span-1">
-        <span>Stok</span>
-        <Input type="number" value={form.stock} onChange={(e)=>{ const v=parseInt(e.target.value,10); setForm({...form, stock: Number.isFinite(v)&&v>=0?v:0}); }}/>
-      </label>
-
-      <div className="md:col-span-5 grid md:grid-cols-3 gap-2 items-end">
-        <div className="flex items-center gap-3">
-          <img src={form.image || DEFAULT_IMG} alt="preview" className="w-16 h-16 object-cover rounded-lg border"/>
-          <div className="grid gap-1 text-sm flex-1">
-            <span>URL Gambar</span>
-            <Input placeholder="https://" value={form.image} onChange={(e)=>setForm({...form, image:e.target.value})}/>
-          </div>
-        </div>
-        <div>
-          <input
-            id={fileId}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e)=>{ const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=()=> setForm({...form, image: String(r.result)}); r.readAsDataURL(f); }}
-          />
-          <Button type="button" onClick={()=>document.getElementById(fileId).click()} className="rounded-xl inline-flex items-center gap-2">
-            <ImagePlus className="w-4 h-4"/> Upload Foto
-          </Button>
-        </div>
-      </div>
-
-      <label className="grid gap-1 text-sm md:col-span-5">
-        <span>Deskripsi (opsional)</span>
-        <Input placeholder="contoh: panen pagi, segar untuk sop" value={form.desc} onChange={(e)=>setForm({...form, desc:e.target.value})}/>
-      </label>
-      <div className="md:col-span-5">
-        <Button
-          disabled={!canAdd}
-          onClick={()=>{
-            if(exists(form.id)) return alert("ID sudah dipakai, gunakan ID lain.");
-            setProducts([{...form}, ...products]);
-            setForm({ id:"", name:"", image:"", desc:"", stock:20, price: basePrice || DEFAULT_BASE_PRICE });
-          }}
-        >
-          Tambah Produk
-        </Button>
-        {!canAdd && <span className="text-xs text-slate-500 ml-2">Isi ID & Nama (ID unik).</span>}
-      </div>
-    </div>
-  );
-}
-
-/** Kelola Produk (edit inline / hapus) */
-function ProductsManager({ products, setProducts }) {
-  const update = (id, patch) => {
-    setProducts(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
-  };
-  const remove = (id) => {
-    if (!confirm("Hapus produk ini?")) return;
-    setProducts(prev => prev.filter(p => p.id !== id));
-  };
-
-  if (!products.length) return <div className="text-sm text-slate-500">Belum ada produk.</div>;
-
-  return (
-    <div className="grid gap-2">
-      {products.map((p) => (
-        <Card key={p.id} className="rounded-2xl">
-          <CardContent className="p-3 grid md:grid-cols-12 gap-2 items-center">
-            <div className="md:col-span-1">
-              <img src={p.image || DEFAULT_IMG} alt={p.name} className="w-14 h-14 rounded-lg object-cover border" />
-            </div>
-            <div className="md:col-span-2">
-              <div className="text-[11px] text-slate-500">ID</div>
-              <div className="text-xs font-mono">{p.id}</div>
-            </div>
-            <div className="md:col-span-3">
-              <div className="text-[11px] text-slate-500">Nama</div>
-              <Input value={p.name} onChange={(e)=>update(p.id, { name: e.target.value })} />
-            </div>
-            <div className="md:col-span-2">
-              <div className="text-[11px] text-slate-500">Harga</div>
-              <Input type="number" value={p.price ?? ""} placeholder="(pakai harga dasar)"
-                     onChange={(e)=>update(p.id, { price: e.target.value === "" ? undefined : Math.max(0, parseInt(e.target.value||"0",10)) })} />
-            </div>
-            <div className="md:col-span-2">
-              <div className="text-[11px] text-slate-500">Stok</div>
-              <Input type="number" value={p.stock} onChange={(e)=>update(p.id, { stock: Math.max(0, parseInt(e.target.value||"0",10)) })} />
-            </div>
-            <div className="md:col-span-1">
-              <Button variant="ghost" size="icon" onClick={()=>remove(p.id)} className="rounded-xl">
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="md:col-span-12">
-              <div className="text-[11px] text-slate-500 mb-1">URL Gambar</div>
-              <Input value={p.image || ""} onChange={(e)=>update(p.id, { image: e.target.value })} placeholder="https://..." />
-              <div className="text-[11px] text-slate-500 mt-1">Deskripsi</div>
-              <Input value={p.desc || ""} onChange={(e)=>update(p.id, { desc: e.target.value })} placeholder="deskripsi singkat" />
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-}
-
-/** Import CSV */
-function ImportCSV({ products, setProducts }){
-  const [status, setStatus] = useState("");
-  const inputId = "csv_input_"+Math.random().toString(36).slice(2);
-
-  const onFile = (file)=>{
-    const reader = new FileReader();
-    reader.onload = () => {
-      try{
-        const text = String(reader.result);
-        const recs = parseCSV(text);
-        if(!recs.length){ setStatus("CSV kosong atau tidak terbaca."); return; }
-
-        // merge: update kalau ada, tambah kalau baru
-        setProducts(prev => {
-          const next = [...prev];
-          for (const r of recs) {
-            const idx = next.findIndex(p => p.id === r.id);
-            if (idx >= 0) {
-              const old = next[idx];
-              next[idx] = {
-                ...old,
-                ...r,
-                image: r.image || old.image || "",
-                stock: Number.isFinite(r.stock) ? r.stock : old.stock,
-                price: Number.isFinite(r.price) ? r.price : old.price
-              };
-            } else {
-              next.unshift({ ...r, image: r.image || "" });
-            }
-          }
-          return next;
-        });
-
-        setStatus(`Berhasil memproses ${recs.length} baris.`);
-      }catch(e){ setStatus("Gagal memproses CSV: "+e.message); }
-    };
-    reader.readAsText(file);
-  };
-
-  return (
-    <div className="grid gap-2 text-sm">
-      <div className="flex items-center gap-2">
-        <input id={inputId} type="file" accept=".csv" className="hidden" onChange={(e)=> e.target.files && onFile(e.target.files[0]) }/>
-        <Button onClick={()=>document.getElementById(inputId).click()}>Import CSV</Button>
-        <Button
-          variant="outline"
-          onClick={()=>{
-            const sample = [
-              "id,name,desc,stock,image,price",
-              "bayam-merah,Bayam Merah,Panen pagi 250g,30,https://images.unsplash.com/photo-1543339308-43f2a5a7c8e8,5000",
-              "pakcoy,Pakcoy Hijau,Segar untuk tumisan,40,,6000",
-              "paprika-merah,Paprika Merah,Manis & renyah,25,https://images.unsplash.com/photo-1546471180-3ad1c6925f59,7000"
-            ].join("\n");
-            const blob = new Blob([sample], {type:"text/csv"});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a"); a.href = url; a.download = "template_sayur5.csv"; a.click(); URL.revokeObjectURL(url);
-          }}
-        >
-          Unduh Template
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={()=>{
-            setProducts(products.map(p => ({
-              ...p,
-              image: p.image && String(p.image).trim() ? p.image : DEFAULT_IMG
-            })));
-            setStatus("Foto default diisi untuk produk tanpa gambar.");
-          }}
-        >
-          Isi Foto Default
-        </Button>
-      </div>
-      {status && <div className="text-slate-600">{status}</div>}
-      <div className="text-xs text-slate-500">
-        Format: <code>id,name,desc,stock,image,price</code>. Kolom <code>image</code> boleh kosong (akan pakai foto default) dan <code>price</code> opsional.
-      </div>
-    </div>
-  );
-}
-
-/** CSV Export */
-function downloadCSV(orders){
-  const header = ["id","tanggal","nama","telepon","alamat","payment","subtotal","ongkir","total","status","items"];
-  const rows = orders.map(o=>[
-    o.id,
-    new Date(o.date).toLocaleString("id-ID"),
-    JSON.stringify(o.name),
-    o.phone,
-    JSON.stringify(o.address),
-    o.payment,
-    o.subtotal,
-    o.shipping,
-    o.total,
-    o.status,
-    o.items.map(it=>`${it.name} x${it.qty}`).join("; ")
-  ]);
-  const csv = [header.join(","), ...rows.map(r=>r.join(","))].join("\n");
-  const blob = new Blob([csv], {type:"text/csv"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a"); a.href = url; a.download = `sayur5_orders_${todayKey()}.csv`; a.click(); URL.revokeObjectURL(url);
-}
-
-/** CartSheet */
+/* ===== Subcomponents ===== */
 function CartSheet({
-  items,
-  totalQty,
-  subtotal,
-  shippingFee,
-  grandTotal,
-  add,
-  sub,
-  clearCart,
-  setOpenCheckout,
-  freeOngkirMin,
-  ongkir,
+  items, totalQty, subtotal, shippingFee, grandTotal,
+  add, sub, clearCart, setOpenCheckout, freeOngkirMin, ongkir,
 }) {
   return (
     <Sheet>
@@ -848,80 +415,48 @@ function CartSheet({
 
         <div className="mt-4 space-y-4">
           {items.length === 0 && (
-            <div className="text-sm text-slate-500">
-              Keranjang kosong. Yuk pilih sayur dulu.
-            </div>
+            <div className="text-sm text-slate-500">Keranjang kosong. Yuk pilih sayur dulu.</div>
           )}
 
           {items.map((it) => (
             <Card key={it.id} className="rounded-2xl">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-xl">
-                  🥬
-                </div>
-
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-xl">🥬</div>
                 <div className="flex-1">
                   <div className="font-medium leading-tight">{it.name}</div>
-                  <div className="text-xs text-slate-500">
-                    {toIDR(it.price)} / pack
-                  </div>
+                  <div className="text-xs text-slate-500">{toIDR(it.price)} / pack</div>
                 </div>
-
                 <div className="flex items-center gap-2">
-                  <Button size="icon" variant="outline" className="rounded-full" onClick={() => sub(it.id)}>
-                    <Minus className="w-4 h-4" />
-                  </Button>
+                  <Button size="icon" variant="outline" className="rounded-full" onClick={() => sub(it.id)}><Minus className="w-4 h-4" /></Button>
                   <div className="w-8 text-center font-semibold">{it.qty}</div>
-                  <Button size="icon" className="rounded-full" onClick={() => add(it.id)}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
+                  <Button size="icon" className="rounded-full" onClick={() => add(it.id)}><Plus className="w-4 h-4" /></Button>
                 </div>
-
-                <div className="w-20 text-right font-semibold">
-                  {toIDR(it.price * it.qty)}
-                </div>
+                <div className="w-20 text-right font-semibold">{toIDR(it.price * it.qty)}</div>
               </CardContent>
             </Card>
           ))}
         </div>
 
         <div className="mt-6 border-t pt-4 space-y-1 text-sm">
-          <div className="flex justify-between">
-            <span>Subtotal</span>
-            <span>{toIDR(subtotal)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Ongkir</span>
-            <span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span>
-          </div>
-          <div className="flex justify-between font-bold text-base">
-            <span>Total</span>
-            <span>{toIDR(grandTotal)}</span>
-          </div>
+          <div className="flex justify-between"><span>Subtotal</span><span>{toIDR(subtotal)}</span></div>
+          <div className="flex justify-between"><span>Ongkir</span><span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span></div>
+          <div className="flex justify-between font-bold text-base"><span>Total</span><span>{toIDR(grandTotal)}</span></div>
         </div>
 
         <div className="mt-4 flex gap-2">
           <Button className="flex-1 rounded-2xl" disabled={items.length === 0} onClick={() => setOpenCheckout(true)}>
-            <CreditCard className="w-4 h-4 mr-2" />
-            Checkout
+            <CreditCard className="w-4 h-4 mr-2" /> Checkout
           </Button>
           <Button variant="ghost" className="rounded-2xl" onClick={clearCart} disabled={items.length === 0}>
-            <X className="w-4 h-4 mr-2" />
-            Kosongkan
+            <X className="w-4 h-4 mr-2" /> Kosongkan
           </Button>
         </div>
 
         <div className="mt-8 p-3 rounded-xl bg-slate-50 text-xs">
           <div className="font-semibold mb-2">Ongkir Ditentukan Admin</div>
           <div className="grid grid-cols-2 gap-2">
-            <div className="flex items-center justify-between">
-              <span>Min Gratis Ongkir</span>
-              <span className="font-medium">{toIDR(freeOngkirMin)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Biaya Ongkir</span>
-              <span className="font-medium">{toIDR(ongkir)}</span>
-            </div>
+            <div className="flex items-center justify-between"><span>Min Gratis Ongkir</span><span className="font-medium">{toIDR(freeOngkirMin)}</span></div>
+            <div className="flex items-center justify-between"><span>Biaya Ongkir</span><span className="font-medium">{toIDR(ongkir)}</span></div>
           </div>
         </div>
       </SheetContent>
@@ -929,16 +464,8 @@ function CartSheet({
   );
 }
 
-/** Checkout form */
 function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, storePhone }) {
-  const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    address: "",
-    payment: "transfer",
-    note: "",
-  });
-
+  const [form, setForm] = useState({ name: "", phone: "", address: "", payment: "transfer", note: "" });
   const validPhone = isValidIndoPhone(form.phone);
   const canSubmit = form.name && validPhone && form.address && items.length > 0;
 
@@ -966,12 +493,7 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
       <div className="grid md:grid-cols-2 gap-3">
         <label className="grid gap-1 text-sm">
           <span>Nama Penerima</span>
-          <Input
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Nama lengkap"
-            className="rounded-xl"
-          />
+          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nama lengkap" className="rounded-xl" />
         </label>
         <label className="grid gap-1 text-sm">
           <span>No. HP</span>
@@ -981,30 +503,21 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
             placeholder="08xxxxxxxxxx"
             className={`rounded-xl ${form.phone && !validPhone ? "border-red-500" : ""}`}
           />
-          {form.phone && !validPhone && (
-            <div className="text-xs text-red-600 mt-1">Nomor HP tidak valid. Contoh: 0812xxxxxxx</div>
-          )}
+          {form.phone && !validPhone && <div className="text-xs text-red-600 mt-1">Nomor HP tidak valid. Contoh: 0812xxxxxxx</div>}
         </label>
       </div>
 
       <label className="grid gap-1 text-sm">
         <span>Alamat Lengkap</span>
-        <Textarea
-          value={form.address}
-          onChange={(e) => setForm({ ...form, address: e.target.value })}
-          placeholder="Jalan, RT/RW, Kel/Desa, Kecamatan, Kota"
-          className="rounded-xl"
-        />
+        <Textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })}
+          placeholder="Jalan, RT/RW, Kel/Desa, Kecamatan, Kota" className="rounded-xl" />
       </label>
 
       <div className="grid md:grid-cols-2 gap-3">
         <label className="grid gap-1 text-sm">
           <span>Metode Pembayaran</span>
-          <select
-            className="border rounded-xl h-10 px-3"
-            value={form.payment}
-            onChange={(e) => setForm({ ...form, payment: e.target.value })}
-          >
+          <select className="border rounded-xl h-10 px-3" value={form.payment}
+            onChange={(e) => setForm({ ...form, payment: e.target.value })}>
             <option value="transfer">Transfer Bank</option>
             <option value="ewallet">E-Wallet (Dana/OVO/GoPay)</option>
             <option value="cod">COD (Cash on Delivery)</option>
@@ -1012,12 +525,8 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
         </label>
         <label className="grid gap-1 text-sm">
           <span>Catatan</span>
-          <Input
-            value={form.note}
-            onChange={(e) => setForm({ ...form, note: e.target.value })}
-            placeholder="Contoh: tanpa cabe, kirim siang"
-            className="rounded-xl"
-          />
+          <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })}
+            placeholder="Contoh: tanpa cabe, kirim siang" className="rounded-xl" />
         </label>
       </div>
 
@@ -1025,50 +534,25 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
         <div className="font-semibold mb-2">Ringkasan</div>
         <div className="space-y-1 text-sm">
           {items.map((it) => (
-            <div key={it.id} className="flex justify-between">
-              <span>{it.name} x{it.qty}</span>
-              <span>{toIDR(it.price * it.qty)}</span>
-            </div>
+            <div key={it.id} className="flex justify-between"><span>{it.name} x{it.qty}</span><span>{toIDR(it.price * it.qty)}</span></div>
           ))}
-          <div className="flex justify-between mt-2">
-            <span>Subtotal</span>
-            <span>{toIDR(subtotal)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Ongkir</span>
-            <span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span>
-          </div>
-          <div className="flex justify-between font-bold text-base">
-            <span>Total</span>
-            <span>{toIDR(grandTotal)}</span>
-          </div>
+          <div className="flex justify-between mt-2"><span>Subtotal</span><span>{toIDR(subtotal)}</span></div>
+          <div className="flex justify-between"><span>Ongkir</span><span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span></div>
+          <div className="flex justify-between font-bold text-base"><span>Total</span><span>{toIDR(grandTotal)}</span></div>
         </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2 mt-1">
-        <a
-          href={waLink}
-          target="_blank"
-          rel="noreferrer"
-          className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${
-            !canSubmit ? "opacity-50 pointer-events-none" : ""
-          }`}
-        >
+        <a href={waLink} target="_blank" rel="noreferrer"
+           className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${!canSubmit ? "opacity-50 pointer-events-none" : ""}`}>
           Pesan via WhatsApp
         </a>
-        <Button
-          variant="outline"
-          className="rounded-2xl h-11"
-          disabled={!canSubmit}
-          onClick={() => onSubmit(form)}
-        >
+        <Button variant="outline" className="rounded-2xl h-11" disabled={!canSubmit} onClick={() => onSubmit(form)}>
           Simpan Pesanan
         </Button>
       </div>
 
-      <div className="text-xs text-slate-500">
-        *Tombol WhatsApp akan membuka chat dengan format pesanan otomatis.
-      </div>
+      <div className="text-xs text-slate-500">*Tombol WhatsApp akan membuka chat dengan format pesanan otomatis.</div>
     </div>
   );
 }
