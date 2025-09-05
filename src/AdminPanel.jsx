@@ -1,12 +1,12 @@
 // src/AdminPanel.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Edit, Lock, Trash2, ImagePlus, Download } from "lucide-react";
 
-/* ====== KONSTANTA & HELPERS ====== */
-const ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN || "555622";
+/* ===== KONSTANTA & HELPERS ===== */
+const ADMIN_PIN_FALLBACK = "555622";
 const DEFAULT_BASE_PRICE = 5000;
 
 const DEFAULT_IMG = `data:image/svg+xml;utf8,${encodeURIComponent(
@@ -20,9 +20,7 @@ const DEFAULT_IMG = `data:image/svg+xml;utf8,${encodeURIComponent(
   </svg>`
 )}`;
 
-function todayKey(d = new Date()) {
-  return d.toISOString().slice(0, 10);
-}
+function todayKey(d = new Date()) { return d.toISOString().slice(0, 10); }
 
 /** Parser CSV: id,name,desc,stock,image,price (header opsional) */
 function parseCSV(text) {
@@ -63,87 +61,78 @@ function parseCSV(text) {
   return out;
 }
 
-/* ====== KOMPONEN UTAMA ====== */
+/* ===== KOMPONEN UTAMA ===== */
 export default function AdminPanel() {
-  /* Auth PIN */
+  /* --- Auth --- */
   const [pin, setPin] = useState("");
   const [authed, setAuthed] = useState(false);
+  const ADMIN_PIN =
+    (import.meta.env.VITE_ADMIN_PIN?.trim() && import.meta.env.VITE_ADMIN_PIN !== "ADMIN_PIN")
+      ? import.meta.env.VITE_ADMIN_PIN.trim()
+      : ADMIN_PIN_FALLBACK;
 
-  /* Settings (localStorage) */
+  /* --- Pengaturan Toko (+ persist) --- */
   const [basePrice, setBasePrice] = useState(() => {
-    const v = parseInt(localStorage.getItem("sayur5_price") ?? "5000", 10);
+    const v = parseInt(localStorage.getItem("sayur5_price") || String(DEFAULT_BASE_PRICE), 10);
     return Number.isFinite(v) ? v : DEFAULT_BASE_PRICE;
   });
   const [freeOngkirMin, setFreeOngkirMin] = useState(() => {
-    const v = parseInt(localStorage.getItem("sayur5_freeMin") ?? "30000", 10);
+    const v = parseInt(localStorage.getItem("sayur5_freeMin") || "30000", 10);
     return Number.isFinite(v) ? v : 30000;
   });
   const [ongkir, setOngkir] = useState(() => {
-    const v = parseInt(localStorage.getItem("sayur5_ongkir") ?? "10000", 10);
+    const v = parseInt(localStorage.getItem("sayur5_ongkir") || "10000", 10);
     return Number.isFinite(v) ? v : 10000;
   });
-  const [storePhone, setStorePhone] = useState(() => {
-    return localStorage.getItem("sayur5_storePhone") || "6281234567890";
-  });
+  const [storePhone, setStorePhone] = useState(() =>
+    localStorage.getItem("sayur5_storePhone") || "6281233115194"
+  );
 
-  /* Data (localStorage) */
-  const [products, setProducts] = useState(() => {
-    try {
-      const raw = localStorage.getItem("sayur5_products");
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      localStorage.removeItem("sayur5_products");
-      return [];
-    }
-  });
-  const [orders, setOrders] = useState(() => {
-    try {
-      const raw = localStorage.getItem("sayur5_orders");
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      localStorage.removeItem("sayur5_orders");
-      return [];
-    }
-  });
-
-  const API_URL = import.meta.env.VITE_API_URL || "https://sayur5-bl6.pages.dev/api/products";
-
-async function loadFromCloud() {
-  const r = await fetch(API_URL, { mode: "cors" });
-  if (!r.ok) throw new Error(await r.text());
-  const data = await r.json();
-  setProducts(Array.isArray(data) ? data : []);
-  alert("Katalog dimuat dari Cloudflare KV.");
-}
-
-async function publishToCloud() {
-  const r = await fetch(API_URL, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${import.meta.env.VITE_ADMIN_PIN}`, // 555622
-    },
-    body: JSON.stringify(products),
-  });
-  if (!r.ok) throw new Error(await r.text());
-  alert("Katalog berhasil dipublish ke Cloudflare KV.");
-}
-
-
-  /* Persist */
-  useEffect(() => { localStorage.setItem("sayur5_products", JSON.stringify(products)); }, [products]);
-  useEffect(() => { localStorage.setItem("sayur5_orders", JSON.stringify(orders)); }, [orders]);
   useEffect(() => { localStorage.setItem("sayur5_price", String(basePrice)); }, [basePrice]);
   useEffect(() => { localStorage.setItem("sayur5_freeMin", String(freeOngkirMin)); }, [freeOngkirMin]);
   useEffect(() => { localStorage.setItem("sayur5_ongkir", String(ongkir)); }, [ongkir]);
   useEffect(() => { localStorage.setItem("sayur5_storePhone", storePhone); }, [storePhone]);
 
-  const login = () => {
-    if (pin === ADMIN_PIN) setAuthed(true);
-    else alert("PIN salah");
-  };
+  /* --- Data katalog & pesanan (local cache) --- */
+  const [products, setProducts] = useState(() => {
+    try { const raw = localStorage.getItem("sayur5_products"); return raw ? JSON.parse(raw) : []; }
+    catch { localStorage.removeItem("sayur5_products"); return []; }
+  });
+  const [orders, setOrders] = useState(() => {
+    try { const raw = localStorage.getItem("sayur5_orders"); return raw ? JSON.parse(raw) : []; }
+    catch { localStorage.removeItem("sayur5_orders"); return []; }
+  });
 
-  /* ===== Render: halaman PIN ===== */
+  useEffect(() => { localStorage.setItem("sayur5_products", JSON.stringify(products)); }, [products]);
+  useEffect(() => { localStorage.setItem("sayur5_orders", JSON.stringify(orders)); }, [orders]);
+
+  /* --- API Cloudflare Pages Function --- */
+  const API_URL = import.meta.env.VITE_API_URL || "https://sayur5-bl6.pages.dev/api/products";
+
+  async function loadFromCloud() {
+    const r = await fetch(API_URL, { mode: "cors" });
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    setProducts(Array.isArray(data) ? data : []);
+    alert("Katalog dimuat dari Cloudflare KV.");
+  }
+
+  async function publishToCloud() {
+    const r = await fetch(API_URL, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${pin}` },
+      body: JSON.stringify(products), // mengganti seluruh katalog di KV
+    });
+    if (!r.ok) throw new Error(await r.text());
+    alert("Katalog berhasil dipublish ke Cloudflare KV.");
+  }
+
+  // Auto-load setelah login sukses
+  useEffect(() => { if (authed) loadFromCloud().catch(() => {}); }, [authed]);
+
+  const login = () => (pin === ADMIN_PIN ? setAuthed(true) : alert("PIN salah"));
+
+  /* ======= RENDER: Halaman PIN ======= */
   if (!authed) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
@@ -156,13 +145,7 @@ async function publishToCloud() {
             <Lock className="w-4 h-4" /> Masukkan PIN admin
           </div>
           <div className="flex gap-2">
-            <Input
-              type="password"
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              placeholder="PIN"
-              className="max-w-xs"
-            />
+            <Input type="password" value={pin} onChange={(e)=>setPin(e.target.value)} placeholder="PIN" className="max-w-xs" />
             <Button onClick={login}>Masuk</Button>
           </div>
         </div>
@@ -170,14 +153,17 @@ async function publishToCloud() {
     );
   }
 
-  /* ===== Render: isi admin ===== */
+  /* ======= RENDER: Isi Admin ======= */
   return (
     <div className="min-h-screen p-6 bg-slate-50">
       <div className="max-w-5xl mx-auto space-y-8">
-        <h1 className="text-2xl font-bold">Admin Panel</h1>
-        <div className="flex gap-2 mt-3">
-          <Button variant="outline" onClick={loadFromCloud}>Load dari Cloud</Button>
-          <Button onClick={publishToCloud}>Publish ke Cloud</Button>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Admin Panel</h1>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={loadFromCloud}>Load dari Cloud</Button>
+            <Button onClick={publishToCloud}>Publish ke Cloud</Button>
+          </div>
         </div>
 
         {/* Pengaturan Toko */}
@@ -186,31 +172,46 @@ async function publishToCloud() {
           <div className="grid md:grid-cols-4 gap-3">
             <label className="grid gap-1 text-sm">
               <span>Harga Dasar (IDR)</span>
-              <Input type="number" value={basePrice}
-                     onChange={(e)=>setBasePrice(Math.max(0, parseInt(e.target.value||"0", 10)))} />
+              <Input
+                type="number"
+                value={basePrice}
+                onChange={(e)=>setBasePrice(Math.max(0, parseInt(e.target.value||"0",10)))}
+              />
             </label>
             <label className="grid gap-1 text-sm">
               <span>Min. Gratis Ongkir</span>
-              <Input type="number" value={freeOngkirMin}
-                     onChange={(e)=>setFreeOngkirMin(Math.max(0, parseInt(e.target.value||"0", 10)))} />
+              <Input
+                type="number"
+                value={freeOngkirMin}
+                onChange={(e)=>setFreeOngkirMin(Math.max(0, parseInt(e.target.value||"0",10)))}
+              />
             </label>
             <label className="grid gap-1 text-sm">
               <span>Biaya Ongkir</span>
-              <Input type="number" value={ongkir}
-                     onChange={(e)=>setOngkir(Math.max(0, parseInt(e.target.value||"0", 10)))} />
+              <Input
+                type="number"
+                value={ongkir}
+                onChange={(e)=>setOngkir(Math.max(0, parseInt(e.target.value||"0",10)))}
+              />
             </label>
             <label className="grid gap-1 text-sm">
               <span>No. WA Toko</span>
-              <Input value={storePhone} onChange={(e)=>setStorePhone(e.target.value)} placeholder="628xxxxxxxxxx" />
+              <Input
+                value={storePhone}
+                onChange={(e)=>setStorePhone(e.target.value)}
+                placeholder="628xxxxxxxxxx"
+              />
             </label>
           </div>
-          <div className="text-xs text-slate-500 mt-2">Tersimpan otomatis (localStorage).</div>
+          <div className="text-xs text-slate-500 mt-2">
+            *Pengaturan disimpan di browser (localStorage). Frontstore membaca nilai ini saat runtime.
+          </div>
         </section>
 
         {/* Tambah Produk */}
         <section className="border rounded-2xl p-4 bg-white">
           <h3 className="font-semibold mb-3">Tambah Produk Baru</h3>
-          <AddProductForm products={products} setProducts={setProducts} basePrice={basePrice} />
+          <AddProductForm products={products} setProducts={setProducts} basePrice={basePrice || DEFAULT_BASE_PRICE} />
         </section>
 
         {/* Daftar Produk */}
@@ -238,9 +239,9 @@ async function publishToCloud() {
   );
 }
 
-/* ====== Sub-komponen ====== */
-function AddProductForm({ products, setProducts, basePrice }) {
-  const [form, setForm] = useState({ id:"", name:"", image:"", desc:"", stock:20, price: basePrice ?? DEFAULT_BASE_PRICE });
+/* ===== SUB-KOMPONEN ===== */
+function AddProductForm({ products, setProducts, basePrice = DEFAULT_BASE_PRICE }) {
+  const [form, setForm] = useState({ id:"", name:"", image:"", desc:"", stock:20, price: basePrice });
   const exists = (id)=> products.some(p=>p.id === id);
   const canAdd = form.id.trim() && form.name.trim() && !exists(form.id);
   const fileId = "file_"+Math.random().toString(36).slice(2);
@@ -249,27 +250,35 @@ function AddProductForm({ products, setProducts, basePrice }) {
     <div className="grid md:grid-cols-5 gap-2 items-end">
       <label className="grid gap-1 text-sm md:col-span-1">
         <span>ID</span>
-        <Input placeholder="bayam-merah"
-               value={form.id}
-               onChange={(e)=>setForm({...form, id: e.target.value.trim().toLowerCase()})}/>
+        <Input
+          placeholder="bayam-merah"
+          value={form.id}
+          onChange={(e)=>setForm({...form, id: e.target.value.trim().toLowerCase()})}
+        />
       </label>
       <label className="grid gap-1 text-sm md:col-span-2">
         <span>Nama</span>
-        <Input placeholder="Nama produk"
-               value={form.name}
-               onChange={(e)=>setForm({...form, name: e.target.value})}/>
+        <Input
+          placeholder="Nama produk"
+          value={form.name}
+          onChange={(e)=>setForm({...form, name: e.target.value})}
+        />
       </label>
       <label className="grid gap-1 text-sm md:col-span-1">
         <span>Harga (IDR)</span>
-        <Input type="number"
-               value={form.price}
-               onChange={(e)=>{ const v = parseInt(e.target.value,10); setForm({...form, price: Number.isFinite(v)&&v>=0?v:0}); }}/>
+        <Input
+          type="number"
+          value={form.price}
+          onChange={(e)=>{ const v = parseInt(e.target.value,10); setForm({...form, price: Number.isFinite(v)&&v>=0?v:0}); }}
+        />
       </label>
       <label className="grid gap-1 text-sm md:col-span-1">
         <span>Stok</span>
-        <Input type="number"
-               value={form.stock}
-               onChange={(e)=>{ const v = parseInt(e.target.value,10); setForm({...form, stock: Number.isFinite(v)&&v>=0?v:0}); }}/>
+        <Input
+          type="number"
+          value={form.stock}
+          onChange={(e)=>{ const v = parseInt(e.target.value,10); setForm({...form, stock: Number.isFinite(v)&&v>=0?v:0}); }}
+        />
       </label>
 
       <div className="md:col-span-5 grid md:grid-cols-3 gap-2 items-end">
@@ -296,9 +305,7 @@ function AddProductForm({ products, setProducts, basePrice }) {
 
       <label className="grid gap-1 text-sm md:col-span-5">
         <span>Deskripsi (opsional)</span>
-        <Input placeholder="panen pagi, segar untuk sop"
-               value={form.desc}
-               onChange={(e)=>setForm({...form, desc: e.target.value})}/>
+        <Input placeholder="panen pagi, segar untuk sop" value={form.desc} onChange={(e)=>setForm({...form, desc: e.target.value})}/>
       </label>
 
       <div className="md:col-span-5">
@@ -307,7 +314,7 @@ function AddProductForm({ products, setProducts, basePrice }) {
           onClick={()=>{
             if (exists(form.id)) return alert("ID sudah dipakai.");
             setProducts([{...form}, ...products]);
-            setForm({ id:"", name:"", image:"", desc:"", stock:20, price: basePrice ?? DEFAULT_BASE_PRICE });
+            setForm({ id:"", name:"", image:"", desc:"", stock:20, price: basePrice });
           }}
         >
           Tambah Produk
@@ -334,7 +341,7 @@ function ProductsManager({ products, setProducts }) {
             </div>
             <div className="md:col-span-2">
               <div className="text-[11px] text-slate-500">ID</div>
-              <div className="text-xs font-mono">{p.id}</div>
+              <div className="text-xs font-mono break-all">{p.id}</div>
             </div>
             <div className="md:col-span-3">
               <div className="text-[11px] text-slate-500">Nama</div>
@@ -390,8 +397,7 @@ function ImportCSV({ products, setProducts }) {
             if (idx >= 0) {
               const old = next[idx];
               next[idx] = {
-                ...old,
-                ...r,
+                ...old, ...r,
                 image: r.image || old.image || "",
                 stock: Number.isFinite(r.stock) ? r.stock : old.stock,
                 price: Number.isFinite(r.price) ? r.price : old.price
