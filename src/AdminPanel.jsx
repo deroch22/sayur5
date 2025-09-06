@@ -8,22 +8,22 @@ import { slugify, makeUniqueId } from "@/lib/id";
 import { imgSrc } from "@/utils/img";
 import { safeSetItem, safeJSONSetItem } from "@/utils/safeLS";
 
-
-/* ===== KONSTANTA & HELPERS ===== */
+/* ===== KONSTANTA ===== */
 const ADMIN_PIN_FALLBACK = "555622";
 const DEFAULT_BASE_PRICE = 5000;
-
 const DEFAULT_IMG = "img/default.jpg";
 
-// --- helper untuk membersihkan nilai gambar ---
+/* ===== HELPERS ===== */
 const normalizeImage = (s) => {
   const v = (s || "").trim();
   // kalau ditempel data URL/base64 → kosongkan agar pakai default
   if (!v || v.startsWith("data:")) return "";
-  return v; // biarkan URL http(s) atau path relatif (img/xxx.jpg)
+  return v; // http(s) / blob: / path relatif (img/xxx.jpg)
 };
- 
-function todayKey(d = new Date()) { return d.toISOString().slice(0, 10); }
+
+function todayKey(d = new Date()) {
+  return d.toISOString().slice(0, 10);
+}
 
 /** Parser CSV: id,name,desc,stock,image,price (header opsional) */
 function parseCSV(text) {
@@ -51,7 +51,9 @@ function parseCSV(text) {
   for (let i = start; i < rows.length; i++) {
     const cols = splitLine(rows[i]); const rec = {};
     header.forEach((h, idx) => (rec[h] = cols[idx]));
-    const id = (rec.id || rec.kode || rec.sku || (rec.name || rec.nama || "").toLowerCase().replace(/\s+/g, "-")).toLowerCase();
+    const id =
+      (rec.id || rec.kode || rec.sku ||
+       (rec.name || rec.nama || "").toLowerCase().replace(/\s+/g, "-")).toLowerCase();
     const name = rec.name || rec.nama || id;
     const desc = rec.desc || rec.deskripsi || "";
     const stock = parseInt(rec.stock || rec.stok || 0, 10) || 0;
@@ -91,15 +93,7 @@ export default function AdminPanel() {
     localStorage.getItem("sayur5_storePhone") || "6281233115194"
   );
 
-useEffect(() => { safeJSONSetItem("sayur5_products", products); }, [products]);
-useEffect(() => { safeJSONSetItem("sayur5_orders", orders); }, [orders]);
-useEffect(() => { safeSetItem("sayur5_price", String(basePrice)); }, [basePrice]);
-useEffect(() => { safeSetItem("sayur5_freeMin", String(freeOngkirMin)); }, [freeOngkirMin]);
-useEffect(() => { safeSetItem("sayur5_ongkir", String(ongkir)); }, [ongkir]);
-useEffect(() => { safeSetItem("sayur5_storePhone", storePhone); }, [storePhone]);
-
-
-  /* --- Data katalog & pesanan (local cache) --- */
+  /* --- Data (cache lokal) --- */
   const [products, setProducts] = useState(() => {
     try { const raw = localStorage.getItem("sayur5_products"); return raw ? JSON.parse(raw) : []; }
     catch { localStorage.removeItem("sayur5_products"); return []; }
@@ -109,61 +103,63 @@ useEffect(() => { safeSetItem("sayur5_storePhone", storePhone); }, [storePhone])
     catch { localStorage.removeItem("sayur5_orders"); return []; }
   });
 
-  useEffect(() => { localStorage.setItem("sayur5_products", JSON.stringify(products)); }, [products]);
-  useEffect(() => { localStorage.setItem("sayur5_orders", JSON.stringify(orders)); }, [orders]);
+  /* --- Persist (AMAN) --- */
+  useEffect(() => { safeJSONSetItem("sayur5_products", products); }, [products]);
+  useEffect(() => { safeJSONSetItem("sayur5_orders", orders); }, [orders]);
+  useEffect(() => { safeSetItem("sayur5_price", String(basePrice)); }, [basePrice]);
+  useEffect(() => { safeSetItem("sayur5_freeMin", String(freeOngkirMin)); }, [freeOngkirMin]);
+  useEffect(() => { safeSetItem("sayur5_ongkir", String(ongkir)); }, [ongkir]);
+  useEffect(() => { safeSetItem("sayur5_storePhone", storePhone); }, [storePhone]);
 
   /* --- API Cloudflare Pages Function --- */
- const API_URL = (import.meta.env.VITE_API_URL ?? "").trim() || "/api/products";
+  const API_URL = (import.meta.env.VITE_API_URL ?? "").trim() || "/api/products";
 
- async function loadFromCloud() {
-  try {
-    const r = await fetch(API_URL, { mode: "cors" });
-    const text = await r.text(); // baca sebagai text dulu buat debugging
-    if (!r.ok) throw new Error(`GET ${r.status}: ${text}`);
-    const data = JSON.parse(text);
-    setProducts(Array.isArray(data) ? data : []);
-    alert("Katalog dimuat dari Cloudflare KV.");
-  } catch (e) {
-    alert("Gagal load: " + e.message);
-    console.error(e);
+  async function loadFromCloud() {
+    try {
+      const r = await fetch(API_URL, { mode: "cors" });
+      const text = await r.text();
+      if (!r.ok) throw new Error(`GET ${r.status}: ${text}`);
+      const data = JSON.parse(text);
+      setProducts(Array.isArray(data) ? data : []);
+      alert("Katalog dimuat dari Cloudflare KV.");
+    } catch (e) {
+      alert("Gagal load: " + e.message);
+      console.error(e);
+    }
   }
-}
 
-async function publishToCloud() {
-  try {
-    const r = await fetch(API_URL, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${pin}`, // gunakan PIN yang diketik
-      },
-      body: JSON.stringify(products),
-    });
-    const text = await r.text();
-    if (!r.ok) throw new Error(`PUT ${r.status}: ${text}`);
-    alert("Katalog berhasil dipublish ke Cloudflare KV.");
-  } catch (e) {
-    alert("Gagal publish: " + e.message);
-    console.error(e);
+  async function publishToCloud() {
+    try {
+      const r = await fetch(API_URL, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${pin}`, // gunakan PIN yang diketik
+        },
+        body: JSON.stringify(products),
+      });
+      const text = await r.text();
+      if (!r.ok) throw new Error(`PUT ${r.status}: ${text}`);
+      alert("Katalog berhasil dipublish ke Cloudflare KV.");
+    } catch (e) {
+      alert("Gagal publish: " + e.message);
+      console.error(e);
+    }
   }
-}
 
-  
+  function stripBase64Images() {
+    setProducts(prev =>
+      prev.map(p => ({
+        ...p,
+        image: /^(data:|blob:)/.test(p.image || "") ? "" : (p.image || "") // kosong → pakai default
+      }))
+    );
+  }
 
-  // Auto-load setelah login sukses
+  // Auto-load setelah login
   useEffect(() => { if (authed) loadFromCloud().catch(() => {}); }, [authed]);
 
   const login = () => (pin === ADMIN_PIN ? setAuthed(true) : alert("PIN salah"));
-
-  function stripBase64Images() {
-  setProducts(prev =>
-    prev.map(p => ({
-      ...p,
-      image: /^(data:|blob:)/.test(p.image || '') ? '' : (p.image || '') // kosongkan → fallback ke default
-    }))
-  );
-}
-
 
   /* ======= RENDER: Halaman PIN ======= */
   if (!authed) {
@@ -195,10 +191,7 @@ async function publishToCloud() {
           <h1 className="text-2xl font-bold">Admin Panel</h1>
           <div className="flex gap-2">
             <Button variant="outline" onClick={loadFromCloud}>Load dari Cloud</Button>
-            <Button variant="outline" onClick={stripBase64Images}>
-              Bersihkan Foto Base64
-            </Button>
-
+            <Button variant="outline" onClick={stripBase64Images}>Bersihkan Foto Base64</Button>
             <Button onClick={publishToCloud}>Publish ke Cloud</Button>
           </div>
         </div>
@@ -209,40 +202,22 @@ async function publishToCloud() {
           <div className="grid md:grid-cols-4 gap-3">
             <label className="grid gap-1 text-sm">
               <span>Harga Dasar (IDR)</span>
-              <Input
-                type="number"
-                value={basePrice}
-                onChange={(e)=>setBasePrice(Math.max(0, parseInt(e.target.value||"0",10)))}
-              />
+              <Input type="number" value={basePrice} onChange={(e)=>setBasePrice(Math.max(0, parseInt(e.target.value||"0",10)))} />
             </label>
             <label className="grid gap-1 text-sm">
               <span>Min. Gratis Ongkir</span>
-              <Input
-                type="number"
-                value={freeOngkirMin}
-                onChange={(e)=>setFreeOngkirMin(Math.max(0, parseInt(e.target.value||"0",10)))}
-              />
+              <Input type="number" value={freeOngkirMin} onChange={(e)=>setFreeOngkirMin(Math.max(0, parseInt(e.target.value||"0",10)))} />
             </label>
             <label className="grid gap-1 text-sm">
               <span>Biaya Ongkir</span>
-              <Input
-                type="number"
-                value={ongkir}
-                onChange={(e)=>setOngkir(Math.max(0, parseInt(e.target.value||"0",10)))}
-              />
+              <Input type="number" value={ongkir} onChange={(e)=>setOngkir(Math.max(0, parseInt(e.target.value||"0",10)))} />
             </label>
             <label className="grid gap-1 text-sm">
               <span>No. WA Toko</span>
-              <Input
-                value={storePhone}
-                onChange={(e)=>setStorePhone(e.target.value)}
-                placeholder="628xxxxxxxxxx"
-              />
+              <Input value={storePhone} onChange={(e)=>setStorePhone(e.target.value)} placeholder="628xxxxxxxxxx" />
             </label>
           </div>
-          <div className="text-xs text-slate-500 mt-2">
-            *Pengaturan disimpan di browser (localStorage). Frontstore membaca nilai ini saat runtime.
-          </div>
+          <div className="text-xs text-slate-500 mt-2">*Pengaturan disimpan lokal di browser.</div>
         </section>
 
         {/* Tambah Produk */}
@@ -278,64 +253,33 @@ async function publishToCloud() {
 
 /* ===== SUB-KOMPONEN ===== */
 function AddProductForm({ products, setProducts, basePrice }) {
-  const [form, setForm] = useState({
-    name: "",
-    image: "",
-    desc: "",
-    stock: 20,
-    price: basePrice ?? DEFAULT_BASE_PRICE,
-  });
-
+  const [form, setForm] = useState({ name:"", image:"", desc:"", stock:20, price: basePrice ?? DEFAULT_BASE_PRICE });
   const canAdd = form.name.trim().length > 0;
   const fileId = "file_" + Math.random().toString(36).slice(2);
 
   return (
     <div className="grid md:grid-cols-5 gap-2 items-end">
-      {/* (HAPUS) input ID */}
-
       <label className="grid gap-1 text-sm md:col-span-2">
         <span>Nama</span>
-        <Input
-          placeholder="Nama produk"
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-        />
+        <Input placeholder="Nama produk" value={form.name} onChange={(e)=>setForm({...form, name:e.target.value})}/>
       </label>
-
       <label className="grid gap-1 text-sm md:col-span-1">
         <span>Harga (IDR)</span>
-        <Input
-          type="number"
-          value={form.price}
-          onChange={(e) => {
-            const v = parseInt(e.target.value, 10);
-            setForm({ ...form, price: Number.isFinite(v) && v >= 0 ? v : 0 });
-          }}
-        />
+        <Input type="number" value={form.price}
+          onChange={(e)=>{ const v=parseInt(e.target.value,10); setForm({...form, price: Number.isFinite(v)&&v>=0?v:0}); }}/>
       </label>
-
       <label className="grid gap-1 text-sm md:col-span-1">
         <span>Stok</span>
-        <Input
-          type="number"
-          value={form.stock}
-          onChange={(e) => {
-            const v = parseInt(e.target.value, 10);
-            setForm({ ...form, stock: Number.isFinite(v) && v >= 0 ? v : 0 });
-          }}
-        />
+        <Input type="number" value={form.stock}
+          onChange={(e)=>{ const v=parseInt(e.target.value,10); setForm({...form, stock: Number.isFinite(v)&&v>=0?v:0}); }}/>
       </label>
 
       <div className="md:col-span-5 grid md:grid-cols-3 gap-2 items-end">
         <div className="flex items-center gap-3">
-         <img src={imgSrc(form.image) /* akan fallback ke default jika "" */} alt="preview" className="w-16 h-16 object-cover rounded-lg border" />
+          <img src={imgSrc(form.image)} alt="preview" className="w-16 h-16 object-cover rounded-lg border"/>
           <div className="grid gap-1 text-sm flex-1">
             <span>URL Gambar</span>
-            <Input
-              placeholder="https://... atau img/nama-file.jpg"
-              value={form.image}
-              onChange={(e) => setForm({ ...form, image: e.target.value })}
-            />
+            <Input placeholder="https://... atau img/nama-file.jpg" value={form.image} onChange={(e)=>setForm({...form, image:e.target.value})}/>
           </div>
         </div>
         <div>
@@ -344,49 +288,50 @@ function AddProductForm({ products, setProducts, basePrice }) {
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={(e) => {
+            onChange={(e)=>{
               const f = e.target.files?.[0];
               if (!f) return;
-              // HANYA simpan path relatif. File-nya harus kamu commit ke public/img
+              // hanya simpan path relatif — file-nya harus kamu commit ke public/img
               setForm({ ...form, image: `img/${f.name}` });
               alert(`Ingat: upload file "${f.name}" ke folder public/img di repo agar tampil.`);
             }}
           />
-
-          <Button type="button" onClick={() => document.getElementById(fileId).click()} className="rounded-xl inline-flex items-center gap-2">
-            <ImagePlus className="w-4 h-4" /> Upload Foto
+          <Button type="button" onClick={()=>document.getElementById(fileId).click()} className="rounded-xl inline-flex items-center gap-2">
+            <ImagePlus className="w-4 h-4"/> Upload Foto
           </Button>
         </div>
       </div>
 
       <label className="grid gap-1 text-sm md:col-span-5">
         <span>Deskripsi (opsional)</span>
-        <Input
-          placeholder="panen pagi, segar untuk sop"
-          value={form.desc}
-          onChange={(e) => setForm({ ...form, desc: e.target.value })}
-        />
+        <Input placeholder="panen pagi, segar untuk sop" value={form.desc} onChange={(e)=>setForm({...form, desc:e.target.value})}/>
       </label>
 
       <div className="md:col-span-5">
         <Button
-            disabled={!canAdd}
-            onClick={() => {
-              if (exists(form.id)) return alert("ID sudah dipakai, gunakan ID lain.");
-              const toSave = { ...form, image: normalizeImage(form.image) };
-              setProducts([ toSave, ...products ]);
-              setForm({ id:"", name:"", image:"", desc:"", stock:20, price: basePrice ?? DEFAULT_BASE_PRICE });
-            }}
-          >
-            Tambah Produk
-          </Button>
-
+          disabled={!canAdd}
+          onClick={()=>{
+            const base = slugify(form.name);
+            const newId = makeUniqueId(base, products);
+            const toSave = {
+              id: newId,
+              name: form.name.trim(),
+              desc: form.desc,
+              stock: form.stock,
+              price: form.price,
+              image: normalizeImage(form.image),
+            };
+            setProducts([toSave, ...products]);
+            setForm({ name:"", image:"", desc:"", stock:20, price: basePrice ?? DEFAULT_BASE_PRICE });
+          }}
+        >
+          Tambah Produk
+        </Button>
         {!canAdd && <span className="text-xs text-slate-500 ml-2">Isi nama produk dulu.</span>}
       </div>
     </div>
   );
 }
-
 
 function ProductsManager({ products, setProducts }) {
   const update = (id, patch) => setProducts(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
@@ -400,14 +345,12 @@ function ProductsManager({ products, setProducts }) {
         <Card key={p.id} className="rounded-2xl">
           <CardContent className="p-3 grid md:grid-cols-12 gap-2 items-center">
             <div className="md:col-span-1">
-              <img src={imgSrc(form.image) /* akan fallback ke default jika "" */} alt="preview" className="w-16 h-16 object-cover rounded-lg border" />
+              <img src={imgSrc(p.image || DEFAULT_IMG)} alt={p.name} className="w-14 h-14 rounded-lg object-cover border" />
             </div>
-        
             <div className="md:col-span-2">
               <div className="text-[11px] text-slate-500">ID (otomatis)</div>
               <div className="text-xs font-mono break-all">{p.id}</div>
             </div>
-
             <div className="md:col-span-3">
               <div className="text-[11px] text-slate-500">Nama</div>
               <Input value={p.name} onChange={(e)=>update(p.id, { name: e.target.value })} />
@@ -432,7 +375,11 @@ function ProductsManager({ products, setProducts }) {
             </div>
             <div className="md:col-span-12">
               <div className="text-[11px] text-slate-500 mb-1">URL Gambar</div>
-              <Input value={p.image || ""} placeholder="https://... atau img/nama-file.jpg" onChange={(e) => update(p.id, { image: normalizeImage(e.target.value) })}/>
+              <Input
+                value={p.image || ""}
+                placeholder="https://... atau img/nama-file.jpg"
+                onChange={(e) => update(p.id, { image: normalizeImage(e.target.value) })}
+              />
               <div className="text-[11px] text-slate-500 mt-2">Deskripsi</div>
               <Input value={p.desc || ""} onChange={(e)=>update(p.id, { desc: e.target.value })} placeholder="deskripsi singkat" />
             </div>
@@ -458,18 +405,23 @@ function ImportCSV({ products, setProducts }) {
         setProducts(prev => {
           const next = [...prev];
           for (const r of recs) {
-            const idx = next.findIndex(p => p.id === r.id);
-            if (idx >= 0) {
-              const old = next[idx];
-              next[idx] = {
-                ...old, ...r,
-                image: r.image || old.image || "",
-                stock: Number.isFinite(r.stock) ? r.stock : old.stock,
-                price: Number.isFinite(r.price) ? r.price : old.price
-              };
-            } else {
-              next.unshift({ ...r, image: r.image || "" });
+            const rid = (r.id || "").trim();
+            if (rid) {
+              const idx = next.findIndex(p => p.id === rid);
+              if (idx >= 0) {
+                const old = next[idx];
+                next[idx] = {
+                  ...old, ...r,
+                  image: r.image || old.image || "",
+                  stock: Number.isFinite(r.stock) ? r.stock : old.stock,
+                  price: Number.isFinite(r.price) ? r.price : old.price
+                };
+                continue;
+              }
             }
+            // jika tidak ada id → generate dari name
+            const nid = makeUniqueId(slugify(r.name || "item"), next);
+            next.unshift({ ...r, id: nid, image: r.image || "" });
           }
           return next;
         });
