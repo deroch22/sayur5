@@ -194,10 +194,12 @@ export default function AdminPanel() {
           <div className="flex gap-2">
             <Button variant="outline" onClick={loadFromCloud}>Load dari Cloud</Button>
             <Button variant="outline" onClick={stripBase64Images}>Bersihkan Foto Base64</Button>
-            <Button
-              onClick={publishToCloud}
-              disabled={products.some(p => p.image && !isHttpUrl(p.image))}
-            >
+           <Button
+            onClick={publishToCloud}
+            disabled={products.some(p => p.image && !isHttpUrl(p.image))}
+          >
+            Publish ke Cloud
+          </Button>
           </div>
         </div>
 
