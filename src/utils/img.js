@@ -1,15 +1,13 @@
-// Aman di GitHub Pages & Cloudflare Pages (tidak pakai new URL)
+// Paling aman: jangan pernah pakai new URL. Selalu fallback ke file default.
 export const imgSrc = (url = "") => {
-  // URL absolut / data: / blob: biarkan apa adanya
-  if (/^(https?:)?\/\//i.test(url) || /^data:/i.test(url) || /^blob:/i.test(url)) return url;
-
-  // fallback default
-  if (!url) url = "img/default.jpg";
-
-  // BASE_URL dari Vite bisa "/" atau "/sayur5/"
-  const base = (import.meta?.env?.BASE_URL ?? "/");
-  const prefix = base.endsWith("/") ? base : base + "/";
-
-  // satukan tanpa double slash
-  return prefix + String(url).replace(/^\/+/, "");
+  try {
+    if (!url) return "/img/default.jpg";
+    if (/^(https?:)?\/\//i.test(url)) return url;   // http/https
+    if (/^data:/i.test(url)) return "/img/default.jpg"; // tolak base64
+    if (/^blob:/i.test(url)) return "/img/default.jpg"; // tolak blob
+    // kalau relatif seperti "img/xyz.jpg" → tetap fallback dulu
+    return "/img/default.jpg";
+  } catch {
+    return "/img/default.jpg";
+  }
 };
