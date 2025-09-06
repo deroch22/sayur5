@@ -22,6 +22,25 @@ function safeSetItem(key, val) {
     alert("Penyimpanan browser penuh. Kurangi ukuran/jumlah gambar.");
     return false;
   }
+  
+function toProxyFromR2(u = "") {
+  try {
+    // ambil path setelah "uploads/..."
+    const url = new URL(u);
+    const parts = url.pathname.split("/").filter(Boolean);
+    const idx = parts.indexOf("uploads");
+    if (idx >= 0) {
+      const key = parts.slice(idx).join("/");
+      return `/api/file?key=${encodeURIComponent(key)}`;
+    }
+    // fallback: kalau pola tak ketemu, biarkan apa adanya
+    return u;
+  } catch {
+    return u;
+  }
+}
+
+  
 }
 function safeJSONSetItem(key, obj) {
   return safeSetItem(key, JSON.stringify(obj));
