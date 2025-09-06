@@ -7,6 +7,22 @@ import { Edit, Lock, Trash2, ImagePlus, Download } from "lucide-react";
 import { slugify, makeUniqueId } from "@/lib/id";
 import { imgSrc } from "@/utils/img";
 import { safeSetItem, safeJSONSetItem } from "@/utils/safeLS";
+import { uploadToR2 } from "@/utils/upload";
+
+
+async function uploadToR2(file, pin) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const r = await fetch("/api/upload", {
+    method: "POST",
+    body: fd,
+    headers: { Authorization: `Bearer ${pin}` },
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
+  return JSON.parse(text); // { ok, key, url }
+}
+
 
 /* ===== KONSTANTA ===== */
 const ADMIN_PIN_FALLBACK = "555622";
@@ -253,6 +269,8 @@ export default function AdminPanel() {
 
 /* ===== SUB-KOMPONEN ===== */
 function AddProductForm({ products, setProducts, basePrice }) {
+  const { url } = await uploadToR2(file, pin);
+setForm(s => ({ ...s, image: url }));
   const [form, setForm] = useState({ name:"", image:"", desc:"", stock:20, price: basePrice ?? DEFAULT_BASE_PRICE });
   const canAdd = form.name.trim().length > 0;
   const fileId = "file_" + Math.random().toString(36).slice(2);
