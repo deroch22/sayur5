@@ -194,7 +194,10 @@ export default function AdminPanel() {
           <div className="flex gap-2">
             <Button variant="outline" onClick={loadFromCloud}>Load dari Cloud</Button>
             <Button variant="outline" onClick={stripBase64Images}>Bersihkan Foto Base64</Button>
-            <Button onClick={publishToCloud}>Publish ke Cloud</Button>
+            <Button
+              onClick={publishToCloud}
+              disabled={products.some(p => p.image && !isHttpUrl(p.image))}
+            >
           </div>
         </div>
 
@@ -258,6 +261,7 @@ function AddProductForm({ products, setProducts, basePrice }) {
   const [form, setForm] = useState({ name:"", image:"", desc:"", stock:20, price: basePrice ?? DEFAULT_BASE_PRICE });
   const canAdd = form.name.trim().length > 0;
   const fileId = "file_" + Math.random().toString(36).slice(2);
+  const [uploading, setUploading] = useState(false);
 
   return (
     <div className="grid md:grid-cols-5 gap-2 items-end">
@@ -276,6 +280,7 @@ function AddProductForm({ products, setProducts, basePrice }) {
           onChange={(e)=>{ const v=parseInt(e.target.value,10); setForm({...form, stock: Number.isFinite(v)&&v>=0?v:0}); }}/>
       </label>
 
+      
       <div className="md:col-span-5 grid md:grid-cols-3 gap-2 items-end">
         <div className="flex items-center gap-3">
           <img src={imgSrc(form.image)} alt="preview" className="w-16 h-16 object-cover rounded-lg border"/>
@@ -286,20 +291,28 @@ function AddProductForm({ products, setProducts, basePrice }) {
         </div>
         <div>
           <input
-            id={fileId}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e)=>{
-              const f = e.target.files?.[0];
-              if (!f) return;
-              // hanya simpan path relatif — file-nya harus kamu commit ke public/img
-              setForm({ ...form, image: `img/${f.name}` });
-              alert(`Ingat: upload file "${f.name}" ke folder public/img di repo agar tampil.`);
-            }}
-          />
-          <Button type="button" onClick={()=>document.getElementById(fileId).click()} className="rounded-xl inline-flex items-center gap-2">
-            <ImagePlus className="w-4 h-4"/> Upload Foto
+                id={fileId}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  setUploading(true);
+                  try {
+                    // pin = PIN yang admin ketik di halaman login
+                    const { url } = await uploadToR2(f, pin);   // ← /api/upload mengembalikan { ok, key, url }
+                    setForm(s => ({ ...s, image: url }));       // ← SIMPAN URL R2, bukan data: / blob:
+                  } catch (err) {
+                    alert("Gagal upload ke R2: " + err.message);
+                  } finally {
+                    setUploading(false);
+                    e.target.value = ""; // reset pilihan file
+                  }
+                }}
+              />
+          <Button type="button" disabled={uploading} onClick={() => document.getElementById(fileId).click()}>
+            {uploading ? "Mengunggah..." : "Upload Foto"}
           </Button>
         </div>
       </div>
@@ -311,18 +324,9 @@ function AddProductForm({ products, setProducts, basePrice }) {
 
       <div className="md:col-span-5">
         <Button
-          disabled={!canAdd}
-          onClick={()=>{
-            const base = slugify(form.name);
-            const newId = makeUniqueId(base, products);
-            const toSave = {
-              id: newId,
-              name: form.name.trim(),
-              desc: form.desc,
-              stock: form.stock,
-              price: form.price,
-              image: normalizeImage(form.image),
-            };
+          disabled={!canAdd || uploading || (form.image && !isHttpUrl(form.image))}
+          onClick={() => {
+            const toSave = { ...form, image: (form.image && isHttpUrl(form.image)) ? form.image : "" };
             setProducts([toSave, ...products]);
             setForm({ name:"", image:"", desc:"", stock:20, price: basePrice ?? DEFAULT_BASE_PRICE });
           }}
