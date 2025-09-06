@@ -255,8 +255,6 @@ export default function AdminPanel() {
 
 /* ===== SUB-KOMPONEN ===== */
 function AddProductForm({ products, setProducts, basePrice }) {
-  const { url } = await uploadToR2(file, pin);
-setForm(s => ({ ...s, image: url }));
   const [form, setForm] = useState({ name:"", image:"", desc:"", stock:20, price: basePrice ?? DEFAULT_BASE_PRICE });
   const canAdd = form.name.trim().length > 0;
   const fileId = "file_" + Math.random().toString(36).slice(2);
