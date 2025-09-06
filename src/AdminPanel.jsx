@@ -157,6 +157,14 @@ export default function AdminPanel() {
       return [];
     }
   });
+useEffect(() => {
+  fetch("https://sayur5-bl6.pages.dev/api/products", { mode: "cors" })
+    .then(r => r.ok ? r.json() : Promise.reject(new Error(r.statusText)))
+    .then(data => { if (Array.isArray(data)) setProducts(data); })
+    .catch(() => { /* biarkan pakai localStorage */ });
+}, []);
+
+  
   const [orders, setOrders] = useState(() => {
     try {
       const raw = localStorage.getItem("sayur5_orders");
