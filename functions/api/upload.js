@@ -1,69 +1,51 @@
 // functions/api/upload.js
+export async function onRequestPost({ request, env }) {
+  // Otorisasi sederhana via PIN di header Authorization: Bearer <PIN>
+  const auth = request.headers.get("Authorization") || "";
+  if (!auth.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), {
+      status: 401, headers: { "content-type": "application/json" }
+    });
+  }
+  const pin = auth.slice(7).trim();
+  // Opsional: kalau kamu punya ENV ADMIN_PIN, validasi di sini
+  if (env.ADMIN_PIN && pin !== env.ADMIN_PIN) {
+    return new Response(JSON.stringify({ ok: false, error: "forbidden" }), {
+      status: 403, headers: { "content-type": "application/json" }
+    });
+  }
 
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "content-type": "application/json",
-      "Access-Control-Allow-Origin": "*",               // simple
-    },
+  // Terima multipart/form-data
+  const ct = request.headers.get("content-type") || "";
+  if (!ct.startsWith("multipart/form-data")) {
+    return new Response(JSON.stringify({ ok: false, error: "expected multipart/form-data" }), {
+      status: 400, headers: { "content-type": "application/json" }
+    });
+  }
+
+  const form = await request.formData();
+  const file = form.get("file");
+  if (!(file instanceof File)) {
+    return new Response(JSON.stringify({ ok: false, error: "missing file" }), {
+      status: 400, headers: { "content-type": "application/json" }
+    });
+  }
+
+  // Buat key penyimpanan
+  const ext = (file.name?.split(".").pop() || "bin").toLowerCase();
+  const dir = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const key = `uploads/${dir}/${crypto.randomUUID()}.${ext}`;
+
+  // Simpan ke R2 via binding "R2"
+  await env.R2.put(key, await file.arrayBuffer(), {
+    httpMetadata: { contentType: file.type || "application/octet-stream" },
+  });
+
+  // Kalau kamu set env "R2_PUBLIC_BASE" (opsional), kirimkan juga URL publiknya
+  const base = (env.R2_PUBLIC_BASE || "").replace(/\/$/, "");
+  const url = base ? `${base}/${key}` : "";
+
+  return new Response(JSON.stringify({ ok: true, key, url }), {
+    headers: { "content-type": "application/json" }
   });
 }
-
-// Preflight CORS (kalau nanti diakses lintas origin)
-export const onRequestOptions = () =>
-  new Response(null, {
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "authorization, content-type",
-      "Access-Control-Max-Age": "86400",
-    },
-  });
-
-export const onRequestPost = async ({ request, env }) => {
-  try {
-    // --- Auth pakai PIN ---
-    const auth = request.headers.get("authorization") || "";
-    const pin = auth.replace(/^Bearer\s+/i, "").trim();
-    const targetPin = (env.VITE_ADMIN_PIN || env.ADMIN_PIN || "").trim();
-    if (!targetPin || pin !== targetPin) {
-      return json({ ok: false, error: "unauthorized" }, 401);
-    }
-
-    // --- Cek multipart ---
-    const ct = request.headers.get("content-type") || "";
-    if (!ct.includes("multipart/form-data")) {
-      return json({ ok: false, error: "expected multipart/form-data" }, 400);
-    }
-
-    // --- Ambil file dari form ---
-    const form = await request.formData();
-    const file = form.get("file");
-    if (!file || typeof file === "string") {
-      return json({ ok: false, error: "file missing" }, 400);
-    }
-
-    // --- Tentukan key ---
-    const ext = (file.name?.split(".").pop() || "").toLowerCase();
-    const safeExt = /^[a-z0-9]{1,5}$/.test(ext) ? "." + ext : "";
-    const key = `uploads/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}${safeExt}`;
-
-    // --- Upload ke R2 (pastikan binding env.R2 ada) ---
-    await env.R2.put(key, file.stream(), {
-      httpMetadata: {
-        contentType: file.type || "application/octet-stream",
-        contentDisposition: `inline; filename="${file.name || "file"}"`,
-      },
-      customMetadata: { origin: "admin" },
-    });
-
-    // --- Bangun URL publik (kalau R2_PUBLIC_BASE diset) ---
-    const base = (env.R2_PUBLIC_BASE || "").replace(/\/+$/, "");
-    const url = base ? `${base}/${key}` : undefined;
-
-    return json({ ok: true, key, url });
-  } catch (err) {
-    return json({ ok: false, error: String(err) }, 500);
-  }
-};
