@@ -1,48 +1,58 @@
 // functions/api/upload.js
+const json = (obj, status = 200, extra = {}) =>
+  new Response(JSON.stringify(obj), {
+    status,
+    headers: {
+      "content-type": "application/json",
+      "access-control-allow-origin": "*",
+      "access-control-allow-headers": "authorization,content-type",
+      ...extra,
+    },
+  });
 
-const cors = (req, env) => {
-  const origin = req.headers.get("Origin") || "*";
-  return {
-    "Access-Control-Allow-Origin": env.ALLOWED_ORIGIN || origin,
-    "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  };
-};
+export async function onRequestOptions() {
+  return new Response(null, {
+    headers: {
+      "access-control-allow-origin": "*",
+      "access-control-allow-headers": "authorization,content-type",
+      "access-control-allow-methods": "POST,OPTIONS",
+    },
+  });
+}
 
-export const onRequestOptions = ({ request, env }) =>
-  new Response(null, { status: 204, headers: cors(request, env) });
-
-export const onRequestPost = async ({ request, env }) => {
-  const headers = { "content-type": "application/json", ...cors(request, env) };
+export async function onRequestPost({ request, env }) {
   try {
-    // Auth
     const auth = request.headers.get("authorization") || "";
     const pin = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-    const ADMIN_PIN = env.ADMIN_PIN || env.VITE_ADMIN_PIN || "";
-    if (!pin || pin !== ADMIN_PIN) {
-      return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401, headers });
+    if (!env.ADMIN_PIN || pin !== env.ADMIN_PIN) {
+      return json({ ok: false, error: "unauthorized" }, 401);
     }
 
-    if (!env.BUCKET) throw new Error("Missing R2 binding 'BUCKET'");
+    const ct = request.headers.get("content-type") || "";
+    if (!/multipart\/form-data/i.test(ct)) {
+      return json({ ok: false, error: "content-type must be multipart/form-data" }, 400);
+    }
 
     const form = await request.formData();
     const file = form.get("file");
-    if (!(file instanceof File)) throw new Error("Missing form field 'file'");
+    if (!file || typeof file.stream !== "function") {
+      return json({ ok: false, error: "no file" }, 400);
+    }
 
-    const ext = (file.name.match(/\.[a-z0-9]+$/i)?.[0] || "").toLowerCase();
-    const key = `uploads/${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-    await env.BUCKET.put(key, await file.arrayBuffer(), {
+    const ext = (file.name || "bin").split(".").pop().toLowerCase();
+    const key =
+      `uploads/${Date.now()}-${Math.random().toString(16).slice(2)}.${ext || "bin"}`;
+
+    // R2 put
+    await env.R2_BUCKET.put(key, file.stream(), {
       httpMetadata: { contentType: file.type || "application/octet-stream" },
     });
 
     const base = (env.R2_PUBLIC_BASE || "").replace(/\/$/, "");
-    const url = base ? `${base}/${key}` : "";
+    const url = base ? `${base}/${key}` : undefined;
 
-    return new Response(JSON.stringify({ ok: true, key, url }), { headers });
-  } catch (err) {
-    // Penting: balas JSON, bukan HTML
-    return new Response(JSON.stringify({ ok: false, error: String(err?.message || err) }), {
-      status: 500, headers
-    });
+    return json({ ok: true, key, url });
+  } catch (e) {
+    return json({ ok: false, error: String(e?.message || e) }, 500);
   }
-};
+}
