@@ -1,11 +1,11 @@
-// Paling aman: jangan pernah pakai new URL. Selalu fallback ke file default.
+// src/utils/img.js
 export const imgSrc = (url = "") => {
   try {
-    if (!url) return "/img/default.jpg";
-    if (/^(https?:)?\/\//i.test(url)) return url;   // http/https
-    if (/^data:/i.test(url)) return "/img/default.jpg"; // tolak base64
-    if (/^blob:/i.test(url)) return "/img/default.jpg"; // tolak blob
-    // kalau relatif seperti "img/xyz.jpg" → tetap fallback dulu
+    if (!url) return "/img/default.jpg";                 // fallback
+    if (/^(https?:)?\/\//i.test(url)) return url;        // http/https
+    if (/^data:/i.test(url)) return "/img/default.jpg";  // tolak base64
+    if (/^blob:/i.test(url)) return "/img/default.jpg";  // tolak blob
+    // relatif: untuk aman, tetap pakai default
     return "/img/default.jpg";
   } catch {
     return "/img/default.jpg";
