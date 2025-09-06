@@ -1,13 +1,15 @@
 // src/utils/img.js
-export const imgSrc = (url = "") => {
-  try {
-    // ijinkan http(s)
-    if (/^https?:\/\//i.test(url)) return url;
-    // tolak data: dan blob: (raw base64) → pakai default
-    if (/^(data:|blob:)/i.test(url)) return "/img/default.jpg";
-    // kosong atau relatif → pakai default absolut (root)
-    return "/img/default.jpg";
-  } catch {
-    return "/img/default.jpg";
-  }
+export const imgSrc = (u = "") => {
+  // URL absolut / data / blob => biarkan
+  if (/^https?:\/\//i.test(u) || /^data:|^blob:/i.test(u)) return u;
+
+  // base dari <base href> (GitHub Pages pakai /sayur5/) atau Vite BASE_URL
+  const base =
+    (typeof document !== "undefined" && document.baseURI) ||
+    (import.meta.env && import.meta.env.BASE_URL) ||
+    "/";
+
+  const root = base.replace(/\/+$/, "");
+  const path = (u && u.trim() ? u : "img/default.jpg").replace(/^\/+/, "");
+  return `${root}/${path}`;
 };
