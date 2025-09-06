@@ -10,20 +10,6 @@ import { safeSetItem, safeJSONSetItem } from "@/utils/safeLS";
 import { uploadToR2 } from "@/utils/upload";
 
 
-async function uploadToR2(file, pin) {
-  const fd = new FormData();
-  fd.append("file", file);
-  const r = await fetch("/api/upload", {
-    method: "POST",
-    body: fd,
-    headers: { Authorization: `Bearer ${pin}` },
-  });
-  const text = await r.text();
-  if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
-  return JSON.parse(text); // { ok, key, url }
-}
-
-
 /* ===== KONSTANTA ===== */
 const ADMIN_PIN_FALLBACK = "555622";
 const DEFAULT_BASE_PRICE = 5000;
