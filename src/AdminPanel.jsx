@@ -8,6 +8,20 @@ import { slugify, makeUniqueId } from "@/lib/id";
 import { imgSrc } from "@/utils/img";
 import { safeSetItem, safeJSONSetItem } from "@/utils/safeLS";
 import { uploadToR2 } from "@/utils/upload";
+// --- upload ke Cloudflare R2 lewat Pages Function ---
+async function uploadToR2(file, pin) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const r = await fetch("/api/upload", {
+    method: "POST",
+    body: fd,
+    headers: { Authorization: `Bearer ${pin}` },
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
+  return JSON.parse(text); // { ok, key, url }
+}
+
 
 
 /* ===== KONSTANTA ===== */
@@ -230,7 +244,13 @@ export default function AdminPanel() {
         {/* Tambah Produk */}
         <section className="border rounded-2xl p-4 bg-white">
           <h3 className="font-semibold mb-3">Tambah Produk Baru</h3>
-          <AddProductForm products={products} setProducts={setProducts} basePrice={basePrice || DEFAULT_BASE_PRICE} />
+         <AddProductForm
+            products={products}
+            setProducts={setProducts}
+            basePrice={basePrice || DEFAULT_BASE_PRICE}
+            pin={pin}
+          />
+
         </section>
 
         {/* Daftar Produk */}
