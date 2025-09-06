@@ -445,7 +445,9 @@ function AddProductForm({ pin, products, setProducts, basePrice }) {
                 // Upload ke R2 via Pages Function /api/upload
                 const { key, url } = await uploadToR2(file, pin);
                 const finalUrl =
-                  url || `${import.meta.env.VITE_R2_PUBLIC_BASE?.replace(/\/$/, "")}/${key}`;
+                  url && /^https?:\/\//.test(url)
+                    ? url
+                    : `/api/file?key=${encodeURIComponent(key)}`;
                 setForm((s) => ({ ...s, image: finalUrl })); // simpan FULL URL R2
               } catch (err) {
                 alert("Upload gagal: " + err.message);
