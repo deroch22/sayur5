@@ -1,20 +1,22 @@
-// aman di admin (CF Pages) maupun store (GitHub Pages)
-export const imgSrc = (url = "") => {
-  const base = import.meta.env.BASE_URL || "/";
+// SAFE untuk 2 lingkungan: Cloudflare Pages ("/") & GitHub Pages ("/sayur5/")
+export const imgSrc = (raw = "") => {
+  const url = (raw || "").trim();
 
-  // kosong → pakai default
-  if (!url) return base.replace(/\/$/, "") + "/img/default.jpg";
+  // izinkan http(s), data:, blob: apa adanya
+  if (/^(https?:)?\/\//.test(url) || /^data:/.test(url) || /^blob:/.test(url)) return url;
 
-  // biarkan URL absolut / data-url / blob-url / proxy API apa adanya
-  if (/^(https?:)?\/\//i.test(url) || url.startsWith("data:") || url.startsWith("blob:") || url.startsWith("/api/")) {
-    return url;
+  // fallback ke default bila kosong
+  const rel = (url || "img/default.jpg").replace(/^\//, "");
+  const base = (import.meta.env.BASE_URL || "/").replace(/\/+$/, "/");
+
+  // jika BASE_URL absolute (jarang), aman dipakai di new URL
+  if (/^https?:\/\//i.test(base)) {
+    try { return new URL(rel, base).toString(); } catch {}
   }
 
-  // URL relatif → gabung dengan BASE_URL, tetapi jangan bikin app crash
-  try {
-    return new URL(url.replace(/^\//, ""), base).toString();
-  } catch (e) {
-    console.warn("[imgSrc] fallback", e, { url, base });
-    return url; // terakhir, kembalikan apa adanya agar tidak crash
-  }
+  // BASE_URL hanya path → gabung dengan origin saat runtime
+  const origin = (typeof window !== "undefined" && window.location)
+    ? window.location.origin
+    : "";
+  return `${origin}${base}${rel}`;
 };
