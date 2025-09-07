@@ -463,10 +463,7 @@ function AddProductForm({ pin, products, setProducts, basePrice }) {
                 setUploading(true);
                 // Upload ke R2 via Pages Function /api/upload
                 const { key, url } = await uploadToR2(file, pin);
-                const finalUrl =
-                  url && /^https?:\/\//.test(url)
-                    ? url
-                    : `/api/file?key=${encodeURIComponent(key)}`;
+                url && /^https?:\/\//.test(url) ? url : `/api/file?key=${key}`;
                 setForm((s) => ({ ...s, image: finalUrl })); // simpan FULL URL R2
               } catch (err) {
                 alert("Upload gagal: " + err.message);
