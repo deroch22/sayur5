@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShoppingCart, Leaf, Search, Truck, BadgePercent, Phone, MapPin,
-  CreditCard, X, Plus, Minus
+  CreditCard, X, Plus, Minus, ArrowLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -402,7 +402,12 @@ useEffect(() => {
       {/* Checkout */}
       <Dialog open={openCheckout} onOpenChange={setOpenCheckout}>
         <DialogContent className="sm:max-w-lg rounded-2xl">
-          <DialogHeader><DialogTitle>Checkout</DialogTitle></DialogHeader>
+          <DialogHeader className="flex items-center justify-between">
+             <Button variant="ghost" size="sm" className="rounded-xl" onClick={closeCheckoutHandler}>
+               <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
+             </Button>
+             <DialogTitle>Checkout</DialogTitle>
+           </DialogHeader>
           {items.length === 0 ? (
             <div className="text-sm text-slate-500">Keranjang kosong.</div>
           ) : (
@@ -439,15 +444,26 @@ function CartSheet({
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
-  // buka otomatis jika URL = /cart
+  // buka otomatis kalau hash-path = /cart
   useEffect(() => {
     setOpen(location.pathname === "/cart");
   }, [location.pathname]);
 
   const handleOpenChange = (v) => {
     setOpen(v);
-    if (v) navigate("/cart");                 // buka -> dorong /cart (biar tombol Back menutup)
-    else navigate("/", { replace: true });    // tutup -> kembali ke /
+    if (v) {
+      // buka -> dorong entry baru supaya tombol Back menutup dulu
+      navigate("/cart");
+    } else {
+      // tutup -> kalau memang lagi di /cart, mundur satu langkah
+      if (location.pathname === "/cart") navigate(-1);
+    }
+  };
+
+  const backFromCart = () => {
+    // tutup via tombol back
+    setOpen(false);
+    if (location.pathname === "/cart") navigate(-1);
   };
 
   return (
@@ -465,15 +481,20 @@ function CartSheet({
       </SheetTrigger>
 
       <SheetContent className="w-full sm:max-w-md">
+        {/* Tombol Kembali */}
+        <div className="mt-1 mb-2">
+          <Button variant="ghost" size="sm" className="rounded-xl" onClick={backFromCart}>
+            <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
+          </Button>
+        </div>
+
         <SheetHeader>
           <SheetTitle>Keranjang Belanja</SheetTitle>
         </SheetHeader>
 
         <div className="mt-4 space-y-4">
           {items.length === 0 && (
-            <div className="text-sm text-slate-500">
-              Keranjang kosong. Yuk pilih sayur dulu.
-            </div>
+            <div className="text-sm text-slate-500">Keranjang kosong. Yuk pilih sayur dulu.</div>
           )}
 
           {items.map((it) => (
@@ -525,6 +546,7 @@ function CartSheet({
     </Sheet>
   );
 }
+
 
 
 function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, storePhone }) {
