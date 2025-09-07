@@ -8,6 +8,8 @@ import { imgSrc } from "@/utils/img";
 import { uploadToR2 } from "@/utils/upload";
 
 /* ====== KONSTANTA & HELPERS ====== */
+const PAGES_ORIGIN =
+  import.meta.env.VITE_PAGES_ORIGIN || "https://sayur5-bl6.pages.dev";
 const ADMIN_PIN_FALLBACK = "555622";
 const DEFAULT_BASE_PRICE = 5000;
 const DEFAULT_IMG = "img/default.jpg";
@@ -472,8 +474,10 @@ function AddProductForm({ pin, products, setProducts, basePrice }) {
                 const { key, url } = await uploadToR2(file, pin);
             
                 // tentukan URL akhir yang aman dipakai <img>
-                const finalUrl =
-                  url && /^https?:\/\//i.test(url) ? url : `/api/file?key=${key}`;
+                const finalUrl = /^https?:\/\//.test(url || "")
+                  ? url
+                  : `${PAGES_ORIGIN}/api/file?key=${encodeURIComponent(key)}`;
+
             
                 // simpan ke form → preview langsung pakai URL ini
                 setForm((s) => ({ ...s, image: finalUrl }));
