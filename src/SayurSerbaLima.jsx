@@ -12,7 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { imgSrc } from "@/utils/img";
-
+import { readJSON, writeJSON, readStr, writeStr } from "@/utils/safe";
 /* ===== Helpers ===== */
 const DEFAULT_BASE_PRICE = 5000;
 
@@ -49,43 +49,42 @@ const isValidIndoPhone = (s) => {
 
 /* ===== Component ===== */
 export default function SayurSerbaLima() {
-  // UI state
-  const [query, setQuery] = useState("");
-  const [cart, setCart] = useState({});
-  const [openCheckout, setOpenCheckout] = useState(false);
+ // UI state
+ const [query, setQuery] = useState("");
+ // baca cart aman dari storage (fallback: objek kosong)
+ const [cart, setCart] = useState(() => readJSON("sayur5.cart", {}));
+
+ // simpan cart tiap kali berubah
+ useEffect(() => {
+   writeJSON("sayur5.cart", cart);
+ }, [cart]);
 
   // Settings (persist)
   const [freeOngkirMin, setFreeOngkirMin] = useState(() => {
-    const v = parseInt(localStorage.getItem("sayur5_freeMin") ?? "30000", 10);
-    return Number.isFinite(v) ? v : 30000;
+  const v = parseInt(readStr("sayur5_freeMin", "30000"), 10);
+  return Number.isFinite(v) ? v : 30000;
   });
   const [ongkir, setOngkir] = useState(() => {
-    const v = parseInt(localStorage.getItem("sayur5_ongkir") ?? "10000", 10);
+    const v = parseInt(readStr("sayur5_ongkir", "10000"), 10);
     return Number.isFinite(v) ? v : 10000;
   });
   const [basePrice, setBasePrice] = useState(() => {
-    const v = parseInt(localStorage.getItem("sayur5_price") ?? String(DEFAULT_BASE_PRICE), 10);
+    const v = parseInt(readStr("sayur5_price", String(DEFAULT_BASE_PRICE)), 10);
     return Number.isFinite(v) ? v : DEFAULT_BASE_PRICE;
   });
   const [storePhone, setStorePhone] = useState(() =>
-    localStorage.getItem("sayur5_storePhone") || "081233115194"
+    readStr("sayur5_storePhone", "081233115194")
   );
 
-  useEffect(() => { localStorage.setItem("sayur5_freeMin", String(freeOngkirMin)); }, [freeOngkirMin]);
-  useEffect(() => { localStorage.setItem("sayur5_ongkir", String(ongkir)); }, [ongkir]);
-  useEffect(() => { localStorage.setItem("sayur5_price", String(basePrice)); }, [basePrice]);
-  useEffect(() => { localStorage.setItem("sayur5_storePhone", String(storePhone)); }, [storePhone]);
+  useEffect(() => { writeStr("sayur5_freeMin", String(freeOngkirMin)); }, [freeOngkirMin]);
+  useEffect(() => { writeStr("sayur5_ongkir", String(ongkir)); }, [ongkir]);
+  useEffect(() => { writeStr("sayur5_price", String(basePrice)); }, [basePrice]);
+  useEffect(() => { writeStr("sayur5_storePhone", storePhone); }, [storePhone]);
 
   // Data (persist)
-  const [products, setProducts] = useState(() => {
-    try {
-      const raw = localStorage.getItem("sayur5_products");
-      return raw ? JSON.parse(raw) : STARTER_PRODUCTS;
-    } catch {
-      localStorage.removeItem("sayur5_products");
-      return STARTER_PRODUCTS;
-    }
-  });
+ const [products, setProducts] = useState(() =>
+  readJSON("sayur5_products", STARTER_PRODUCTS)
+);
 
 useEffect(() => {
   const url = import.meta.env.VITE_API_URL || "https://sayur5-bl6.pages.dev/api/products";
@@ -101,17 +100,10 @@ useEffect(() => {
     });
 }, []);
   
-  const [orders, setOrders] = useState(() => {
-    try {
-      const raw = localStorage.getItem("sayur5_orders");
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      localStorage.removeItem("sayur5_orders");
-      return [];
-    }
-  });
-  useEffect(() => { localStorage.setItem("sayur5_products", JSON.stringify(products)); }, [products]);
-  useEffect(() => { localStorage.setItem("sayur5_orders", JSON.stringify(orders)); }, [orders]);
+ const [orders, setOrders] = useState(() => readJSON("sayur5_orders", []));
+  
+  useEffect(() => { writeJSON("sayur5_products", products); }, [products]);
+  useEffect(() => { writeJSON("sayur5_orders", orders); }, [orders]);
 
   // Sanitize cart when products change
   useEffect(() => {
