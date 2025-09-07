@@ -412,9 +412,9 @@ useEffect(() => {
       <Dialog open={openCheckout} onOpenChange={setOpenCheckout}>
         <DialogContent className="sm:max-w-lg rounded-2xl">
           <DialogHeader className="flex items-center justify-between">
-             <Button variant="ghost" size="sm" className="rounded-xl" onClick={closeCheckoutHandler}>
-               <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
-             </Button>
+            <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
+              <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
+            </Button>
              <DialogTitle>Checkout</DialogTitle>
            </DialogHeader>
           {items.length === 0 ? (
