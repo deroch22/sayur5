@@ -15,8 +15,7 @@ if (ENABLE_ADMIN) {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <ErrorBoundary>
-      {/* basename optional untuk HashRouter; boleh dihapus kalau mau */}
-      <Router basename={import.meta.env.BASE_URL}>
+      <Router>
         <Routes>
           <Route path="/" element={<SayurSerbaLima />} />
           {ENABLE_ADMIN && (
