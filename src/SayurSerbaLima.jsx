@@ -8,12 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { imgSrc } from "@/utils/img";
 import { readJSON, writeJSON, readStr, writeStr } from "@/utils/safe";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useMatch, useLocation, useNavigate } from "react-router-dom";
 
 
 /* ===== Helpers ===== */
@@ -440,31 +440,14 @@ function CartSheet({
   freeOngkirMin,
   ongkir,
 }) {
-  const location = useLocation();
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
+  const matchCart = useMatch("/cart");      // HashRouter: #/cart
+  const open = !!matchCart;
 
-  // buka otomatis kalau hash-path = /cart
-  useEffect(() => {
-    setOpen(location.pathname === "/cart");
-  }, [location.pathname]);
-
- const handleOpenChange = (v) => {
-  setOpen(v);
-  if (v) {
-    // buka -> buat entri /cart
-    navigate("/cart");
-  } else {
-    // tutup -> SELALU ke home, jangan keluar web
-    navigate("/", { replace: true });
-  }
-};
-
-
-  const backFromCart = () => {
-  setOpen(false);
-  navigate("/", { replace: true }); // pastikan kembali ke beranda
-};
+  const handleOpenChange = (v) => {
+    if (v) navigate("/cart");               // buka → ubah URL ke /cart
+    else navigate("/", { replace: true });  // tutup → SELALU balik ke /
+  };
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
@@ -481,11 +464,18 @@ function CartSheet({
       </SheetTrigger>
 
       <SheetContent className="w-full sm:max-w-md">
-        {/* Tombol Kembali */}
+        {/* Tombol Kembali: tutup sheet + navigate ke "/" */}
         <div className="mt-1 mb-2">
-          <Button variant="ghost" size="sm" className="rounded-xl" onClick={backFromCart}>
-            <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
-          </Button>
+          <SheetClose asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-xl"
+              onClick={() => navigate("/", { replace: true })}
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
+            </Button>
+          </SheetClose>
         </div>
 
         <SheetHeader>
@@ -530,9 +520,11 @@ function CartSheet({
           <Button className="flex-1 rounded-2xl" disabled={items.length === 0} onClick={onOpenCheckout}>
             <CreditCard className="w-4 h-4 mr-2" /> Checkout
           </Button>
-          <Button variant="ghost" className="rounded-2xl" onClick={clearCart} disabled={items.length === 0}>
-            <X className="w-4 h-4 mr-2" /> Kosongkan
-          </Button>
+          <SheetClose asChild>
+            <Button variant="ghost" className="rounded-2xl" onClick={clearCart} disabled={items.length === 0}>
+              <X className="w-4 h-4 mr-2" /> Kosongkan
+            </Button>
+          </SheetClose>
         </div>
 
         <div className="mt-8 p-3 rounded-xl bg-slate-50 text-xs">
@@ -546,6 +538,7 @@ function CartSheet({
     </Sheet>
   );
 }
+
 
 
 
