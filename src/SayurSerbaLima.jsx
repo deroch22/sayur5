@@ -234,22 +234,8 @@ useEffect(() => {
             <Badge variant="outline" className="rounded-full hidden lg:inline-flex gap-1">
               <BadgePercent className="w-3 h-3" /> Gratis ongkir min {toIDR(freeOngkirMin)}
             </Badge>
-
-            <CartSheet
-              open={cartOpen}
-              onOpenChange={setCartOpen}
-              items={items}
-              totalQty={totalQty}
-              subtotal={subtotal}
-              shippingFee={shippingFee}
-              grandTotal={grandTotal}
-              add={add}
-              sub={sub}
-              clearCart={clearCart}
-              onOpenCheckout={openCheckoutHandler}
-              freeOngkirMin={freeOngkirMin}
-              ongkir={ongkir}
-            />
+             <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
+            </div>
           </div>
 
           {/* Mobile controls */}
@@ -271,22 +257,9 @@ useEffect(() => {
                 </div>
               </SheetContent>
             </Sheet>
+          <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
+        </div>
 
-            <CartSheet
-              open={cartOpen}
-              onOpenChange={setCartOpen}
-              items={items}
-              totalQty={totalQty}
-              subtotal={subtotal}
-              shippingFee={shippingFee}
-              grandTotal={grandTotal}
-              add={add}
-              sub={sub}
-              clearCart={clearCart}
-              onOpenCheckout={openCheckoutHandler}
-              freeOngkirMin={freeOngkirMin}
-              ongkir={ongkir}
-            />
           </div>
         </div>
       </header>
@@ -417,6 +390,23 @@ useEffect(() => {
         </div>
       </footer>
 
+          <CartSheet
+          open={cartOpen}
+          onOpenChange={setCartOpen}
+          items={items}
+          totalQty={totalQty}
+          subtotal={subtotal}
+          shippingFee={shippingFee}
+          grandTotal={grandTotal}
+          add={add}
+          sub={sub}
+          clearCart={clearCart}
+          onOpenCheckout={openCheckoutHandler}
+          freeOngkirMin={freeOngkirMin}
+          ongkir={ongkir}
+        />
+
+
       {/* Checkout */}
       <Dialog open={openCheckout} onOpenChange={setOpenCheckout}>
         <DialogContent className="sm:max-w-lg rounded-2xl">
@@ -445,9 +435,24 @@ useEffect(() => {
 }
 
 /* ===== Subcomponents ===== */
+function CartButton({ totalQty, onOpen }) {
+  return (
+    <Button className="rounded-2xl" variant="default" onClick={onOpen}>
+      <ShoppingCart className="w-4 h-4 mr-2" />
+      Keranjang
+      {totalQty > 0 && (
+        <span className="ml-2 text-xs bg-emerald-600 text-white px-2 py-0.5 rounded-full">
+          {totalQty}
+        </span>
+      )}
+    </Button>
+  );
+}
+
+
 function CartSheet({
-  open,                 // optional controlled
-  onOpenChange,         // optional controlled setter
+  open,
+  onOpenChange,
   items,
   totalQty,
   subtotal,
@@ -460,37 +465,19 @@ function CartSheet({
   freeOngkirMin,
   ongkir,
 }) {
-  // fallback internal state kalau parent tidak mengontrol
-  const [internalOpen, setInternalOpen] = useState(false);
-  const isControlled = typeof open === "boolean";
-  const isOpen = isControlled ? open : internalOpen;
-
-  const setOpen = (v) => {
-    onOpenChange?.(v);
-    if (!isControlled) setInternalOpen(v);
-  };
-
   const list = Array.isArray(items) ? items : [];
 
   return (
-    <Sheet open={isOpen} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        {/* panggil setOpen(true) eksplisit supaya pasti kebuka */}
-        <Button className="rounded-2xl" variant="default" onClick={() => setOpen(true)}>
-          <ShoppingCart className="w-4 h-4 mr-2" />
-          Keranjang
-          {totalQty > 0 && (
-            <span className="ml-2 text-xs bg-emerald-600 text-white px-2 py-0.5 rounded-full">
-              {totalQty}
-            </span>
-          )}
-        </Button>
-      </SheetTrigger>
-
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md">
-        {/* Tombol Kembali: cukup tutup sheet */}
+        {/* Kembali = tutup sheet */}
         <div className="mt-1 mb-2">
-          <Button variant="ghost" size="sm" className="rounded-xl" onClick={() => setOpen(false)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="rounded-xl"
+            onClick={() => onOpenChange(false)}
+          >
             <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
           </Button>
         </div>
@@ -501,7 +488,9 @@ function CartSheet({
 
         <div className="mt-4 space-y-4">
           {list.length === 0 && (
-            <div className="text-sm text-slate-500">Keranjang kosong. Yuk pilih sayur dulu.</div>
+            <div className="text-sm text-slate-500">
+              Keranjang kosong. Yuk pilih sayur dulu.
+            </div>
           )}
 
           {list.map((it) => (
@@ -553,6 +542,7 @@ function CartSheet({
     </Sheet>
   );
 }
+
 
 
 function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, storePhone }) {
