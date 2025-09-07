@@ -649,28 +649,50 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
         </label>
       </div>
 
-      <div className="mt-2 border rounded-2xl p-3 bg-slate-50">
-        <div className="font-semibold mb-2">Ringkasan</div>
+      export default function CheckoutSummary() {
+  return (
+    <>
+      {/* Ringkasan */}
+      <div className="mt-2 rounded-2xl border bg-slate-50 p-3">
+        <div className="mb-2 font-semibold">Ringkasan</div>
         <div className="space-y-1 text-sm">
           {items.map((it) => (
-            <div key={it.id} className="flex justify-between"><span>{it.name} x{it.qty}</span><span>{toIDR(it.price * it.qty)}</span></div>
+            <div key={it.id} className="flex justify-between">
+              <span>
+                {it.name} x{it.qty}
+              </span>
+              <span>{toIDR(it.price * it.qty)}</span>
+            </div>
           ))}
-          <div className="flex justify-between mt-2"><span>Subtotal</span><span>{toIDR(subtotal)}</span></div>
-          <div className="flex justify-between"><span>Ongkir</span><span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span></div>
-          <div className="flex justify-between font-bold text-base"><span>Total</span><span>{toIDR(grandTotal)}</span></div>
+          <div className="mt-2 flex justify-between">
+            <span>Subtotal</span>
+            <span>{toIDR(subtotal)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Ongkir</span>
+            <span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span>
+          </div>
+          <div className="flex justify-between text-base font-bold">
+            <span>Total</span>
+            <span>{toIDR(grandTotal)}</span>
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2 mt-1">
-  <a
-    href={waLink}
-    target="_blank"
-    rel="noreferrer"
-    className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${
-      !canSubmit ? "opacity-50 pointer-events-none" : ""
-    }`}
-  >
-    Pesan via WhatsApp
-  </a>
-</div>
+      {/* CTA */}
+      <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+        <a
+          href={waLink}
+          target="_blank"
+          rel="noreferrer"
+          className={`inline-flex h-11 items-center justify-center rounded-2xl px-4 font-medium text-white bg-emerald-600 ${
+            !canSubmit ? "pointer-events-none opacity-50" : ""
+          }`}
+        >
+          Pesan via WhatsApp
+        </a>
+      </div>
+    </>
+  );
+}
 
