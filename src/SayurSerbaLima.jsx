@@ -201,68 +201,69 @@ useEffect(() => {
   // UI
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white text-slate-800">
-      {/* Topbar */}
-      <header className="sticky top-0 z-40 backdrop-blur bg-white/70 border-b">
-        <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
-          {/* Brand */}
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-2xl bg-emerald-100 text-emerald-700">
-              <Leaf className="w-5 h-5" />
-            </div>
-            <div className="leading-tight">
-              <div className="font-bold text-lg">Sayur5</div>
-              <div className="text-xs text-slate-500 -mt-0.5">
-                Serba {toIDR(basePrice)} — Fresh Setiap Hari
-              </div>
-            </div>
+      
+     {/* Topbar */}
+<header className="sticky top-0 z-40 backdrop-blur bg-white/70 border-b">
+  <div className="mx-auto max-w-6xl px-4 py-3">
+    <div className="flex items-center justify-between">
+      {/* Brand */}
+      <div className="flex items-center gap-2">
+        <div className="p-2 rounded-2xl bg-emerald-100 text-emerald-700">
+          <Leaf className="w-5 h-5" />
+        </div>
+        <div className="leading-tight">
+          <div className="font-bold text-lg">Sayur5</div>
+          <div className="text-xs text-slate-500 -mt-0.5">
+            Serba {toIDR(basePrice)} — Fresh Setiap Hari
           </div>
+        </div>
+      </div>
 
-          {/* Desktop controls */}
-          <div className="hidden md:flex items-center gap-3">
-            <div className="relative w-72">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+      {/* Desktop controls */}
+      <div className="hidden md:flex items-center gap-3">
+        <div className="relative w-72">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Cari bayam, kangkung, wortel…"
+            className="pl-9 rounded-2xl"
+          />
+        </div>
+        <Badge variant="secondary" className="rounded-full hidden lg:inline-flex gap-1">
+          <Truck className="w-3 h-3" /> Antar cepat area kota
+        </Badge>
+        <Badge variant="outline" className="rounded-full hidden lg:inline-flex gap-1">
+          <BadgePercent className="w-3 h-3" /> Gratis ongkir min {toIDR(freeOngkirMin)}
+        </Badge>
+        <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
+      </div>
+
+      {/* Mobile controls */}
+      <div className="md:hidden flex items-center gap-2">
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="secondary" size="icon" className="rounded-2xl">
+              <Search className="w-4 h-4" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="top">
+            <div className="mt-4">
               <Input
+                autoFocus
+                placeholder="Cari sayur…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Cari bayam, kangkung, wortel…"
-                className="pl-9 rounded-2xl"
               />
             </div>
-            <Badge variant="secondary" className="rounded-full hidden lg:inline-flex gap-1">
-              <Truck className="w-3 h-3" /> Antar cepat area kota
-            </Badge>
-            <Badge variant="outline" className="rounded-full hidden lg:inline-flex gap-1">
-              <BadgePercent className="w-3 h-3" /> Gratis ongkir min {toIDR(freeOngkirMin)}
-            </Badge>
-             <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
-            </div>
-          </div>
+          </SheetContent>
+        </Sheet>
 
-          {/* Mobile controls */}
-          <div className="md:hidden flex items-center gap-2">
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="secondary" size="icon" className="rounded-2xl">
-                  <Search className="w-4 h-4" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="top">
-                <div className="mt-4">
-                  <Input
-                    autoFocus
-                    placeholder="Cari sayur…"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                  />
-                </div>
-              </SheetContent>
-            </Sheet>
-          <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
-        </div>
-
-          </div>
-        </div>
-      </header>
+        <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
+      </div>
+    </div>
+  </div>
+</header>
 
       {/* Hero */}
       <section className="mx-auto max-w-6xl px-4 pt-10">
