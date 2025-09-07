@@ -423,66 +423,23 @@ useEffect(() => {
 }
 
 /* ===== Subcomponents ===== */
-/** CartSheet (TERBARU: terkontrol + back button aware) */
 function CartSheet({
-  items,
-  totalQty,
-  subtotal,
-  shippingFee,
-  grandTotal,
-  add,
-  sub,
-  clearCart,
-  setOpenCheckout,
-  freeOngkirMin,
-  ongkir,
+  items, totalQty, subtotal, shippingFee, grandTotal,
+  add, sub, clearCart, setOpenCheckout, freeOngkirMin, ongkir,
 }) {
-  const [open, setOpen] = React.useState(false);
-
-  // buka keranjang -> push state "#cart"
-  const openCart = React.useCallback(() => {
-    if (window.location.hash !== "#cart") {
-      history.pushState({ modal: "cart" }, "", "#cart");
-    }
-    setOpen(true);
-  }, []);
-
-  // tutup keranjang -> kembali satu langkah (hapus "#cart" dari history)
-  const closeCart = React.useCallback(() => {
-    setOpen(false);
-    if (window.location.hash === "#cart") {
-      history.back();
-    }
-  }, []);
-
-  // saat user tekan tombol Back: kalau hash bukan "#cart", pastikan keranjang tertutup
-  React.useEffect(() => {
-    const onPop = () => {
-      if (window.location.hash !== "#cart") {
-        setOpen(false);
-      }
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
-  // deep link: kalau URL sudah mengandung "#cart", buka saat mount
-  React.useEffect(() => {
-    if (window.location.hash === "#cart") setOpen(true);
-  }, []);
-
   return (
-    <Sheet open={open} onOpenChange={(v) => (v ? openCart() : closeCart())}>
-      {/* GANTI: jangan pakai SheetTrigger; pakai Button biasa yang memanggil openCart() */}
-      <Button className="rounded-2xl" variant="default" onClick={openCart}>
-        <ShoppingCart className="w-4 h-4 mr-2" />
-        Keranjang
-        {totalQty > 0 && (
-          <span className="ml-2 text-xs bg-emerald-600 text-white px-2 py-0.5 rounded-full">
-            {totalQty}
-          </span>
-        )}
-      </Button>
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button className="rounded-2xl" variant="default">
+          <ShoppingCart className="w-4 h-4 mr-2" />
+          Keranjang
+          {totalQty > 0 && (
+            <span className="ml-2 text-xs bg-emerald-600 text-white px-2 py-0.5 rounded-full">
+              {totalQty}
+            </span>
+          )}
+        </Button>
+      </SheetTrigger>
 
       <SheetContent className="w-full sm:max-w-md">
         <SheetHeader>
@@ -491,97 +448,54 @@ function CartSheet({
 
         <div className="mt-4 space-y-4">
           {items.length === 0 && (
-            <div className="text-sm text-slate-500">
-              Keranjang kosong. Yuk pilih sayur dulu.
-            </div>
+            <div className="text-sm text-slate-500">Keranjang kosong. Yuk pilih sayur dulu.</div>
           )}
 
           {items.map((it) => (
             <Card key={it.id} className="rounded-2xl">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-xl">
-                  🥬
-                </div>
-
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-xl">🥬</div>
                 <div className="flex-1">
                   <div className="font-medium leading-tight">{it.name}</div>
-                  <div className="text-xs text-slate-500">
-                    {toIDR(it.price)} / pack
-                  </div>
+                  <div className="text-xs text-slate-500">{toIDR(it.price)} / pack</div>
                 </div>
-
                 <div className="flex items-center gap-2">
-                  <Button size="icon" variant="outline" className="rounded-full" onClick={() => sub(it.id)}>
-                    <Minus className="w-4 h-4" />
-                  </Button>
+                  <Button size="icon" variant="outline" className="rounded-full" onClick={() => sub(it.id)}><Minus className="w-4 h-4" /></Button>
                   <div className="w-8 text-center font-semibold">{it.qty}</div>
-                  <Button size="icon" className="rounded-full" onClick={() => add(it.id)}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
+                  <Button size="icon" className="rounded-full" onClick={() => add(it.id)}><Plus className="w-4 h-4" /></Button>
                 </div>
-
-                <div className="w-20 text-right font-semibold">
-                  {toIDR(it.price * it.qty)}
-                </div>
+                <div className="w-20 text-right font-semibold">{toIDR(it.price * it.qty)}</div>
               </CardContent>
             </Card>
           ))}
         </div>
 
         <div className="mt-6 border-t pt-4 space-y-1 text-sm">
-          <div className="flex justify-between">
-            <span>Subtotal</span>
-            <span>{toIDR(subtotal)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Ongkir</span>
-            <span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span>
-          </div>
-          <div className="flex justify-between font-bold text-base">
-            <span>Total</span>
-            <span>{toIDR(grandTotal)}</span>
-          </div>
+          <div className="flex justify-between"><span>Subtotal</span><span>{toIDR(subtotal)}</span></div>
+          <div className="flex justify-between"><span>Ongkir</span><span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span></div>
+          <div className="flex justify-between font-bold text-base"><span>Total</span><span>{toIDR(grandTotal)}</span></div>
         </div>
 
         <div className="mt-4 flex gap-2">
-          <Button
-            className="flex-1 rounded-2xl"
-            disabled={items.length === 0}
-            onClick={() => {
-              // buka dialog checkout: ini juga sebaiknya ikut history seperti cart
-              if (window.location.hash !== "#checkout") {
-                history.pushState({ modal: "checkout" }, "", "#checkout");
-              }
-              setOpenCheckout(true);
-            }}
-          >
-            <CreditCard className="w-4 h-4 mr-2" />
-            Checkout
+          <Button className="flex-1 rounded-2xl" disabled={items.length === 0} onClick={() => setOpenCheckout(true)}>
+            <CreditCard className="w-4 h-4 mr-2" /> Checkout
           </Button>
           <Button variant="ghost" className="rounded-2xl" onClick={clearCart} disabled={items.length === 0}>
-            <X className="w-4 h-4 mr-2" />
-            Kosongkan
+            <X className="w-4 h-4 mr-2" /> Kosongkan
           </Button>
         </div>
 
         <div className="mt-8 p-3 rounded-xl bg-slate-50 text-xs">
           <div className="font-semibold mb-2">Ongkir Ditentukan Admin</div>
           <div className="grid grid-cols-2 gap-2">
-            <div className="flex items-center justify-between">
-              <span>Min Gratis Ongkir</span>
-              <span className="font-medium">{toIDR(freeOngkirMin)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Biaya Ongkir</span>
-              <span className="font-medium">{toIDR(ongkir)}</span>
-            </div>
+            <div className="flex items-center justify-between"><span>Min Gratis Ongkir</span><span className="font-medium">{toIDR(freeOngkirMin)}</span></div>
+            <div className="flex items-center justify-between"><span>Biaya Ongkir</span><span className="font-medium">{toIDR(ongkir)}</span></div>
           </div>
         </div>
       </SheetContent>
     </Sheet>
   );
 }
-
 
 function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, storePhone }) {
   const [form, setForm] = useState({ name: "", phone: "", address: "", payment: "transfer", note: "" });
@@ -605,19 +519,14 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
     return lines.join("%0A");
   }, [form, items, subtotal, shippingFee, grandTotal]);
 
-  const waLink = `https://wa.me/6281234567890?text=${orderText}`;
+  const waLink = `https://wa.me/${toWA(storePhone)}?text=${orderText}`;
 
   return (
     <div className="grid gap-3">
       <div className="grid md:grid-cols-2 gap-3">
         <label className="grid gap-1 text-sm">
           <span>Nama Penerima</span>
-          <Input
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Nama lengkap"
-            className="rounded-xl"
-          />
+          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nama lengkap" className="rounded-xl" />
         </label>
         <label className="grid gap-1 text-sm">
           <span>No. HP</span>
@@ -625,29 +534,23 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
             value={form.phone}
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
             placeholder="08xxxxxxxxxx"
-            className="rounded-xl"
+            className={`rounded-xl ${form.phone && !validPhone ? "border-red-500" : ""}`}
           />
+          {form.phone && !validPhone && <div className="text-xs text-red-600 mt-1">Nomor HP tidak valid. Contoh: 0812xxxxxxx</div>}
         </label>
       </div>
 
       <label className="grid gap-1 text-sm">
         <span>Alamat Lengkap</span>
-        <Textarea
-          value={form.address}
-          onChange={(e) => setForm({ ...form, address: e.target.value })}
-          placeholder="Jalan, RT/RW, Kel/Desa, Kecamatan, Kota"
-          className="rounded-xl"
-        />
+        <Textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })}
+          placeholder="Jalan, RT/RW, Kel/Desa, Kecamatan, Kota" className="rounded-xl" />
       </label>
 
       <div className="grid md:grid-cols-2 gap-3">
         <label className="grid gap-1 text-sm">
           <span>Metode Pembayaran</span>
-          <select
-            className="border rounded-xl h-10 px-3"
-            value={form.payment}
-            onChange={(e) => setForm({ ...form, payment: e.target.value })}
-          >
+          <select className="border rounded-xl h-10 px-3" value={form.payment}
+            onChange={(e) => setForm({ ...form, payment: e.target.value })}>
             <option value="transfer">Transfer Bank</option>
             <option value="ewallet">E-Wallet (Dana/OVO/GoPay)</option>
             <option value="cod">COD (Cash on Delivery)</option>
@@ -655,12 +558,8 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
         </label>
         <label className="grid gap-1 text-sm">
           <span>Catatan</span>
-          <Input
-            value={form.note}
-            onChange={(e) => setForm({ ...form, note: e.target.value })}
-            placeholder="Contoh: tanpa cabe, kirim siang"
-            className="rounded-xl"
-          />
+          <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })}
+            placeholder="Contoh: tanpa cabe, kirim siang" className="rounded-xl" />
         </label>
       </div>
 
@@ -668,53 +567,25 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
         <div className="font-semibold mb-2">Ringkasan</div>
         <div className="space-y-1 text-sm">
           {items.map((it) => (
-            <div key={it.id} className="flex justify-between">
-              <span>{it.name} x{it.qty}</span>
-              <span>{toIDR(it.price * it.qty)}</span>
-            </div>
+            <div key={it.id} className="flex justify-between"><span>{it.name} x{it.qty}</span><span>{toIDR(it.price * it.qty)}</span></div>
           ))}
-          <div className="flex justify-between mt-2">
-            <span>Subtotal</span>
-            <span>{toIDR(subtotal)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Ongkir</span>
-            <span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span>
-          </div>
-          <div className="flex justify-between font-bold text-base">
-            <span>Total</span>
-            <span>{toIDR(grandTotal)}</span>
-          </div>
+          <div className="flex justify-between mt-2"><span>Subtotal</span><span>{toIDR(subtotal)}</span></div>
+          <div className="flex justify-between"><span>Ongkir</span><span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span></div>
+          <div className="flex justify-between font-bold text-base"><span>Total</span><span>{toIDR(grandTotal)}</span></div>
         </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2 mt-1">
-        <a
-          href={waLink}
-          target="_blank"
-          rel="noreferrer"
-          className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${
-            !canSubmit ? "opacity-50 pointer-events-none" : ""
-          }`}
-        >
+        <a href={waLink} target="_blank" rel="noreferrer"
+           className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${!canSubmit ? "opacity-50 pointer-events-none" : ""}`}>
           Pesan via WhatsApp
         </a>
-        <Button
-          variant="outline"
-          className="rounded-2xl h-11"
-          disabled={!canSubmit}
-          onClick={() => onSubmit(form)}
-        >
+        <Button variant="outline" className="rounded-2xl h-11" disabled={!canSubmit} onClick={() => onSubmit(form)}>
           Simpan Pesanan
         </Button>
       </div>
 
-      <div className="text-xs text-slate-500">
-        *Tombol WhatsApp akan membuka chat dengan format pesanan otomatis.
-      </div>
+      <div className="text-xs text-slate-500">*Tombol WhatsApp akan membuka chat dengan format pesanan otomatis.</div>
     </div>
   );
 }
-
-
-
