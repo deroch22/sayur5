@@ -605,11 +605,9 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
     return lines.join("%0A");
   }, [form, items, subtotal, shippingFee, grandTotal]);
 
-  const waLink = `https://wa.me/${toWA(storePhone)}?text=${orderText}`;
+  const waLink = `https://wa.me/6281234567890?text=${orderText}`;
 
-return (
-  <>
-    {/* Form data pembeli */}
+  return (
     <div className="grid gap-3">
       <div className="grid md:grid-cols-2 gap-3">
         <label className="grid gap-1 text-sm">
@@ -621,20 +619,14 @@ return (
             className="rounded-xl"
           />
         </label>
-
         <label className="grid gap-1 text-sm">
           <span>No. HP</span>
           <Input
             value={form.phone}
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
             placeholder="08xxxxxxxxxx"
-            className={`rounded-xl ${form.phone && !validPhone ? "border-red-500" : ""}`}
+            className="rounded-xl"
           />
-          {form.phone && !validPhone && (
-            <div className="mt-1 text-xs text-red-600">
-              Nomor HP tidak valid. Contoh: 0812xxxxxxx
-            </div>
-          )}
         </label>
       </div>
 
@@ -652,7 +644,7 @@ return (
         <label className="grid gap-1 text-sm">
           <span>Metode Pembayaran</span>
           <select
-            className="h-10 rounded-xl border px-3"
+            className="border rounded-xl h-10 px-3"
             value={form.payment}
             onChange={(e) => setForm({ ...form, payment: e.target.value })}
           >
@@ -661,7 +653,6 @@ return (
             <option value="cod">COD (Cash on Delivery)</option>
           </select>
         </label>
-
         <label className="grid gap-1 text-sm">
           <span>Catatan</span>
           <Input
@@ -672,51 +663,58 @@ return (
           />
         </label>
       </div>
-    </div>
 
-    {/* Ringkasan */}
-    <div className="mt-2 rounded-2xl border bg-slate-50 p-3">
-      <div className="mb-2 font-semibold">Ringkasan</div>
-      <div className="space-y-1 text-sm">
-        {items.map((it) => (
-          <div key={it.id} className="flex justify-between">
-            <span>
-              {it.name} x{it.qty}
-            </span>
-            <span>{toIDR(it.price * it.qty)}</span>
+      <div className="mt-2 border rounded-2xl p-3 bg-slate-50">
+        <div className="font-semibold mb-2">Ringkasan</div>
+        <div className="space-y-1 text-sm">
+          {items.map((it) => (
+            <div key={it.id} className="flex justify-between">
+              <span>{it.name} x{it.qty}</span>
+              <span>{toIDR(it.price * it.qty)}</span>
+            </div>
+          ))}
+          <div className="flex justify-between mt-2">
+            <span>Subtotal</span>
+            <span>{toIDR(subtotal)}</span>
           </div>
-        ))}
-        <div className="mt-2 flex justify-between">
-          <span>Subtotal</span>
-          <span>{toIDR(subtotal)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Ongkir</span>
-          <span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span>
-        </div>
-        <div className="flex justify-between text-base font-bold">
-          <span>Total</span>
-          <span>{toIDR(grandTotal)}</span>
+          <div className="flex justify-between">
+            <span>Ongkir</span>
+            <span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span>
+          </div>
+          <div className="flex justify-between font-bold text-base">
+            <span>Total</span>
+            <span>{toIDR(grandTotal)}</span>
+          </div>
         </div>
       </div>
-    </div>
 
-    {/* CTA WhatsApp */}
-    <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-      <a
-        href={waLink}
-        target="_blank"
-        rel="noreferrer"
-        aria-disabled={!canSubmit}
-        className={`inline-flex h-11 items-center justify-center rounded-2xl px-4 font-medium text-white bg-emerald-600 ${
-          !canSubmit ? "pointer-events-none opacity-50" : ""
-        }`}
-      >
-        Pesan via WhatsApp
-      </a>
+      <div className="flex flex-col sm:flex-row gap-2 mt-1">
+        <a
+          href={waLink}
+          target="_blank"
+          rel="noreferrer"
+          className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${
+            !canSubmit ? "opacity-50 pointer-events-none" : ""
+          }`}
+        >
+          Pesan via WhatsApp
+        </a>
+        <Button
+          variant="outline"
+          className="rounded-2xl h-11"
+          disabled={!canSubmit}
+          onClick={() => onSubmit(form)}
+        >
+          Simpan Pesanan
+        </Button>
+      </div>
+
+      <div className="text-xs text-slate-500">
+        *Tombol WhatsApp akan membuka chat dengan format pesanan otomatis.
+      </div>
     </div>
-  </>
-);
+  );
+}
 
 
 
