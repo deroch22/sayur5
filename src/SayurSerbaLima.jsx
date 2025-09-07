@@ -64,6 +64,10 @@ export default function SayurSerbaLima() {
 const openCheckoutHandler  = () => setOpenCheckout(true);
 const closeCheckoutHandler = () => setOpenCheckout(false);
 
+  useEffect(() => {
+  console.log('cartOpen:', cartOpen);
+}, [cartOpen]);
+
  // simpan cart tiap kali berubah
  useEffect(() => {
    writeJSON("sayur5.cart", cart);
@@ -236,7 +240,10 @@ useEffect(() => {
         <Badge variant="outline" className="rounded-full hidden lg:inline-flex gap-1">
           <BadgePercent className="w-3 h-3" /> Gratis ongkir min {toIDR(freeOngkirMin)}
         </Badge>
-        <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
+       <CartButton
+        totalQty={totalQty}
+        onOpen={() => { console.log('open cart'); setCartOpen(true); }}
+      />
       </div>
 
       {/* Mobile controls */}
@@ -259,7 +266,10 @@ useEffect(() => {
           </SheetContent>
         </Sheet>
 
-        <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
+        <CartButton
+          totalQty={totalQty}
+          onOpen={() => { console.log('open cart'); setCartOpen(true); }}
+        />
       </div>
     </div>
   </div>
@@ -412,7 +422,7 @@ useEffect(() => {
       <Dialog open={openCheckout} onOpenChange={setOpenCheckout}>
         <DialogContent className="sm:max-w-lg rounded-2xl">
           <DialogHeader className="flex items-center justify-between">
-            <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
+            <Button variant="ghost" size="sm" onClick={closeCheckoutHandler}>
               <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
             </Button>
              <DialogTitle>Checkout</DialogTitle>
@@ -470,7 +480,7 @@ function CartSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-md">
+       <SheetContent className="w-full sm:max-w-md z-[100]">
         {/* Kembali = tutup sheet */}
         <div className="mt-1 mb-2">
           <Button
