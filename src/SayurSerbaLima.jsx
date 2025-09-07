@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { imgSrc } from "@/utils/img";
 import { readJSON, writeJSON, readStr, writeStr } from "@/utils/safe";
-import { useMatch, useSearchParams, useNavigate } from "react-router-dom";
+
 
 
 /* ===== Helpers ===== */
@@ -58,6 +58,8 @@ export default function SayurSerbaLima() {
  const [cart, setCart] = useState(() => readJSON("sayur5.cart", {}));
   const [openCheckout, setOpenCheckout] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const openCart  = () => setCartOpen(true);
+  const closeCart = () => setCartOpen(false);
 // handler aman (dibagikan ke child)
 const openCheckoutHandler  = () => setOpenCheckout(true);
 const closeCheckoutHandler = () => setOpenCheckout(false);
@@ -444,8 +446,8 @@ useEffect(() => {
 
 /* ===== Subcomponents ===== */
 function CartSheet({
-  open,
-  onOpenChange,
+  open,                 // optional controlled
+  onOpenChange,         // optional controlled setter
   items,
   totalQty,
   subtotal,
@@ -458,18 +460,23 @@ function CartSheet({
   freeOngkirMin,
   ongkir,
 }) {
-  // Guard: pastikan array supaya tidak "items.map is not a function"
+  // fallback internal state kalau parent tidak mengontrol
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = typeof open === "boolean";
+  const isOpen = isControlled ? open : internalOpen;
+
+  const setOpen = (v) => {
+    onOpenChange?.(v);
+    if (!isControlled) setInternalOpen(v);
+  };
+
   const list = Array.isArray(items) ? items : [];
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={isOpen} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        {/* panggil onOpenChange(true) eksplisit */}
-        <Button
-          className="rounded-2xl"
-          variant="default"
-          onClick={() => onOpenChange(true)}
-        >
+        {/* panggil setOpen(true) eksplisit supaya pasti kebuka */}
+        <Button className="rounded-2xl" variant="default" onClick={() => setOpen(true)}>
           <ShoppingCart className="w-4 h-4 mr-2" />
           Keranjang
           {totalQty > 0 && (
@@ -481,14 +488,9 @@ function CartSheet({
       </SheetTrigger>
 
       <SheetContent className="w-full sm:max-w-md">
-        {/* Tombol Kembali: tutup sheet lewat state parent */}
+        {/* Tombol Kembali: cukup tutup sheet */}
         <div className="mt-1 mb-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="rounded-xl"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button variant="ghost" size="sm" className="rounded-xl" onClick={() => setOpen(false)}>
             <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
           </Button>
         </div>
@@ -499,9 +501,7 @@ function CartSheet({
 
         <div className="mt-4 space-y-4">
           {list.length === 0 && (
-            <div className="text-sm text-slate-500">
-              Keranjang kosong. Yuk pilih sayur dulu.
-            </div>
+            <div className="text-sm text-slate-500">Keranjang kosong. Yuk pilih sayur dulu.</div>
           )}
 
           {list.map((it) => (
@@ -534,19 +534,10 @@ function CartSheet({
         </div>
 
         <div className="mt-4 flex gap-2">
-          <Button
-            className="flex-1 rounded-2xl"
-            disabled={list.length === 0}
-            onClick={onOpenCheckout}
-          >
+          <Button className="flex-1 rounded-2xl" disabled={list.length === 0} onClick={onOpenCheckout}>
             <CreditCard className="w-4 h-4 mr-2" /> Checkout
           </Button>
-          <Button
-            variant="ghost"
-            className="rounded-2xl"
-            onClick={clearCart}
-            disabled={list.length === 0}
-          >
+          <Button variant="ghost" className="rounded-2xl" onClick={clearCart} disabled={list.length === 0}>
             <X className="w-4 h-4 mr-2" /> Kosongkan
           </Button>
         </div>
@@ -562,7 +553,6 @@ function CartSheet({
     </Sheet>
   );
 }
-
 
 
 function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, storePhone }) {
