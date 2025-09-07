@@ -688,7 +688,6 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
           Pesan via WhatsApp
         </a>
       </div>
-    </>
   );
-}
+
 
