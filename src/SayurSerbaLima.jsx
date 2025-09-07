@@ -53,6 +53,10 @@ export default function SayurSerbaLima() {
  const [query, setQuery] = useState("");
  // baca cart aman dari storage (fallback: objek kosong)
  const [cart, setCart] = useState(() => readJSON("sayur5.cart", {}));
+  const [openCheckout, setOpenCheckout] = useState(false);
+// handler aman (dibagikan ke child)
+const openCheckoutHandler  = () => setOpenCheckout(true);
+const closeCheckoutHandler = () => setOpenCheckout(false);
 
  // simpan cart tiap kali berubah
  useEffect(() => {
@@ -404,7 +408,7 @@ useEffect(() => {
               subtotal={subtotal}
               shippingFee={shippingFee}
               grandTotal={grandTotal}
-              onSubmit={(payload)=>{ createOrder(payload); alert("Pesanan dicatat! Admin akan menghubungi via WhatsApp."); setOpenCheckout(false); }}
+              onSubmit={(payload)=>{ createOrder(payload); alert("..."); closeCheckoutHandler(); }}
               storePhone={storePhone}
             />
           )}
