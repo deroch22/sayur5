@@ -297,18 +297,20 @@ useEffect(() => {
                 {products.slice(0,6).map((p)=> (
                   <motion.div key={p.id} whileHover={{ scale: 1.04 }} className="p-4 rounded-2xl bg-white shadow-sm border flex flex-col items-center">
                   <img
-                    src={imgSrc(p.image || "img/default.jpg")}
-                    alt={p.name}
-                    className="h-14 w-14 object-cover rounded-xl"
-                    loading="lazy"
-                    decoding="async"
-                    onError={(e) => {
-                      if (!e.currentTarget.dataset.fallback) {
-                        e.currentTarget.dataset.fallback = "1";
-                        e.currentTarget.src = imgSrc("img/default.jpg");
-                      }
-                    }}
-                  />
+                    <img
+                      src={imgSrc(p.image)}
+                      alt={p.name}
+                      className="h-28 w-28 object-cover rounded-xl"
+                      loading="lazy"
+                      decoding="async"
+                      onError={(e) => {
+                        if (!e.currentTarget.dataset.fallback) {
+                          e.currentTarget.dataset.fallback = "1";
+                          e.currentTarget.src = imgSrc("");
+                        }
+                      }}
+                    />
+
                   <div className="text-xs mt-2 text-center font-medium">{p.name}</div>
                   <div className="text-[10px] text-slate-500">{toIDR(priceOf(p, basePrice))}</div>
                 </motion.div>
@@ -336,18 +338,20 @@ useEffect(() => {
                   <CardHeader className="p-0">
                   <div className="h-28 bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center">
                     <img
-                      src={imgSrc(p.image || "img/default.jpg")}
-                      alt={p.name}
-                      className="h-20 w-20 object-cover rounded-xl border"
-                      loading="lazy"
-                      decoding="async"
-                      onError={(e) => {
-                        if (!e.currentTarget.dataset.fallback) {
-                          e.currentTarget.dataset.fallback = "1";
-                          e.currentTarget.src = imgSrc("img/default.jpg");
-                        }
-                      }}
-                    />
+                      <img
+                        src={imgSrc(p.image)}
+                        alt={p.name}
+                        className="h-28 w-28 object-cover rounded-xl"
+                        loading="lazy"
+                        decoding="async"
+                        onError={(e) => {
+                          if (!e.currentTarget.dataset.fallback) {
+                            e.currentTarget.dataset.fallback = "1";
+                            e.currentTarget.src = imgSrc("");
+                          }
+                        }}
+                      />
+
                   </div>
                 </CardHeader>
 
