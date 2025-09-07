@@ -1,57 +1,42 @@
 // functions/api/file.js
-// Proxy baca objek dari R2 agar bisa dipakai sebagai URL gambar di frontend.
-// Mendukung dua cara:
-//   1) /api/file?key=uploads/2025-09-06/uuid.png
-//   2) /api/file/uploads/2025-09-06/uuid.png
-
-function corsHeaders(origin = "*") {
-  return {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Access-Control-Max-Age": "86400",
-  };
-}
-
-export async function onRequestOptions({ request }) {
-  return new Response(null, { status: 204, headers: corsHeaders(request.headers.get("Origin")) });
-}
-
 export async function onRequestGet({ request, env }) {
-  try {
-    if (!env.R2 || typeof env.R2.get !== "function") {
-      return new Response(JSON.stringify({ ok: false, error: "R2 binding missing" }), {
-        status: 500,
-        headers: { "content-type": "application/json" },
-      });
+  const url = new URL(request.url);
+
+  // key bisa dari ?key=... atau dari path /api/file/<key>
+  let key = url.searchParams.get("key");
+  if (!key) {
+    const prefix = "/api/file/";
+    if (url.pathname.startsWith(prefix)) {
+      key = decodeURIComponent(url.pathname.slice(prefix.length));
     }
-
-    const url = new URL(request.url);
-    // Ambil key dari ?key=... atau dari path setelah /api/file/
-    let key = url.searchParams.get("key");
-    if (!key) {
-      const m = url.pathname.match(/\/api\/file\/(.+)$/);
-      if (m) key = decodeURIComponent(m[1]);
-    }
-    if (!key) return new Response("missing key", { status: 400 });
-
-    const obj = await env.R2.get(key);
-    if (!obj) return new Response("not found", { status: 404, headers: corsHeaders(url.origin) });
-
-    const headers = new Headers(corsHeaders(url.origin));
-    // Set metadata HTTP dari objek (Content-Type, dll)
-    obj.writeHttpMetadata(headers);
-    // Cache lama di edge/browser (sesuaikan kebutuhan)
-    headers.set("Cache-Control", "public, max-age=31536000, immutable");
-    // ETag / Last-Modified agar efektif di cache
-    if (obj.httpEtag) headers.set("ETag", obj.httpEtag);
-    if (obj.uploaded) headers.set("Last-Modified", new Date(obj.uploaded).toUTCString());
-
-    return new Response(obj.body, { headers });
-  } catch (e) {
-    return new Response("error: " + e.message, {
-      status: 500,
-      headers: { "content-type": "text/plain" },
+  }
+  if (!key) {
+    return new Response(JSON.stringify({ ok: false, error: "missing key" }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
     });
   }
+
+  // dukung Range agar bisa di-stream sebagai image/video
+  const range = request.headers.get("range");
+  const obj = await env.R2.get(key, range ? { range } : undefined); // <— BINDING: R2
+  if (!obj) return new Response("Not found", { status: 404 });
+
+  const headers = new Headers();
+  obj.writeHttpMetadata(headers);
+  if (!headers.get("content-type"))
+    headers.set("content-type", "application/octet-stream");
+  headers.set("etag", obj.httpEtag);
+  headers.set("Cache-Control", "public, max-age=86400, immutable");
+  headers.set("Access-Control-Allow-Origin", "*");
+
+  if (range && obj.range) {
+    headers.set(
+      "content-range",
+      `bytes ${obj.range.offset}-${obj.range.end}/${obj.size}`
+    );
+    return new Response(obj.body, { status: 206, headers });
+  }
+
+  return new Response(obj.body, { headers });
 }
