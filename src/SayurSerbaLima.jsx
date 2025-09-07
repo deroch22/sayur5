@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { imgSrc } from "@/utils/img";
@@ -440,14 +440,18 @@ function CartSheet({
   freeOngkirMin,
   ongkir,
 }) {
+  const location = useLocation();
   const navigate = useNavigate();
-  const matchCart = useMatch("/cart");      // HashRouter: #/cart
-  const open = !!matchCart;
+
+  // Sheet terbuka jika URL = /cart
+  const open = location.pathname === "/cart";
 
   const handleOpenChange = (v) => {
-    if (v) navigate("/cart");               // buka → ubah URL ke /cart
-    else navigate("/", { replace: true });  // tutup → SELALU balik ke /
+    if (v) navigate("/cart");                // buka -> ke /cart
+    else navigate("/", { replace: true });   // tutup -> pasti ke /
   };
+
+  const backToHome = () => navigate("/", { replace: true });
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
@@ -464,18 +468,11 @@ function CartSheet({
       </SheetTrigger>
 
       <SheetContent className="w-full sm:max-w-md">
-        {/* Tombol Kembali: tutup sheet + navigate ke "/" */}
+        {/* Tombol Kembali */}
         <div className="mt-1 mb-2">
-          <SheetClose asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="rounded-xl"
-              onClick={() => navigate("/", { replace: true })}
-            >
-              <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
-            </Button>
-          </SheetClose>
+          <Button variant="ghost" size="sm" className="rounded-xl" onClick={backToHome}>
+            <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
+          </Button>
         </div>
 
         <SheetHeader>
@@ -520,11 +517,9 @@ function CartSheet({
           <Button className="flex-1 rounded-2xl" disabled={items.length === 0} onClick={onOpenCheckout}>
             <CreditCard className="w-4 h-4 mr-2" /> Checkout
           </Button>
-          <SheetClose asChild>
-            <Button variant="ghost" className="rounded-2xl" onClick={clearCart} disabled={items.length === 0}>
-              <X className="w-4 h-4 mr-2" /> Kosongkan
-            </Button>
-          </SheetClose>
+          <Button variant="ghost" className="rounded-2xl" onClick={clearCart} disabled={items.length === 0}>
+            <X className="w-4 h-4 mr-2" /> Kosongkan
+          </Button>
         </div>
 
         <div className="mt-8 p-3 rounded-xl bg-slate-50 text-xs">
@@ -538,8 +533,6 @@ function CartSheet({
     </Sheet>
   );
 }
-
-
 
 
 function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, storePhone }) {
