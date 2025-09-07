@@ -649,10 +649,6 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
         </label>
       </div>
 
-      export default function CheckoutSummary() {
-  return (
-    <>
-      {/* Ringkasan */}
       <div className="mt-2 rounded-2xl border bg-slate-50 p-3">
         <div className="mb-2 font-semibold">Ringkasan</div>
         <div className="space-y-1 text-sm">
