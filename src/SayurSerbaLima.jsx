@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { imgSrc } from "@/utils/img";
 import { readJSON, writeJSON, readStr, writeStr } from "@/utils/safe";
++import { useLocation, useNavigate } from "react-router-dom";
+
 /* ===== Helpers ===== */
 const DEFAULT_BASE_PRICE = 5000;
 
@@ -227,7 +229,7 @@ useEffect(() => {
               add={add}
               sub={sub}
               clearCart={clearCart}
-              setOpenCheckout={setOpenCheckout}
+              onOpenCheckout={openCheckoutHandler}
               freeOngkirMin={freeOngkirMin}
               ongkir={ongkir}
             />
@@ -262,7 +264,7 @@ useEffect(() => {
               add={add}
               sub={sub}
               clearCart={clearCart}
-              setOpenCheckout={setOpenCheckout}
+              onOpenCheckout={openCheckoutHandler}
               freeOngkirMin={freeOngkirMin}
               ongkir={ongkir}
             />
@@ -421,10 +423,30 @@ useEffect(() => {
 /* ===== Subcomponents ===== */
 function CartSheet({
   items, totalQty, subtotal, shippingFee, grandTotal,
-  add, sub, clearCart, setOpenCheckout, freeOngkirMin, ongkir,
+  add, sub, clearCart, onOpenCheckout, freeOngkirMin, ongkir,
+ }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+
+  // Buka otomatis bila path = /cart
+  useEffect(() => {
+    setOpen(location.pathname === "/cart");
+  }, [location.pathname]);
+
+  const handleOpenChange = (v) => {
+    setOpen(v);
+    if (v) {
+      // buka keranjang -> dorong route /cart (biar ada history)
+      navigate("/cart");
+    } else {
+      // tutup -> kembali ke home, jangan keluar situs
+      navigate("/", { replace: true });
+    }
+  };
 }) {
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
         <Button className="rounded-2xl" variant="default">
           <ShoppingCart className="w-4 h-4 mr-2" />
@@ -473,7 +495,7 @@ function CartSheet({
         </div>
 
         <div className="mt-4 flex gap-2">
-          <Button className="flex-1 rounded-2xl" disabled={items.length === 0} onClick={() => setOpenCheckout(true)}>
+          <Button className="flex-1 rounded-2xl" disabled={items.length === 0} onClick={onOpenCheckout}>
             <CreditCard className="w-4 h-4 mr-2" /> Checkout
           </Button>
           <Button variant="ghost" className="rounded-2xl" onClick={clearCart} disabled={items.length === 0}>
