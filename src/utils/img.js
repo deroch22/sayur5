@@ -1,15 +1,20 @@
-// src/utils/img.js
-export const imgSrc = (u = "") => {
-  // URL absolut / data / blob => biarkan
-  if (/^https?:\/\//i.test(u) || /^data:|^blob:/i.test(u)) return u;
+// aman di admin (CF Pages) maupun store (GitHub Pages)
+export const imgSrc = (url = "") => {
+  const base = import.meta.env.BASE_URL || "/";
 
-  // base dari <base href> (GitHub Pages pakai /sayur5/) atau Vite BASE_URL
-  const base =
-    (typeof document !== "undefined" && document.baseURI) ||
-    (import.meta.env && import.meta.env.BASE_URL) ||
-    "/";
+  // kosong → pakai default
+  if (!url) return base.replace(/\/$/, "") + "/img/default.jpg";
 
-  const root = base.replace(/\/+$/, "");
-  const path = (u && u.trim() ? u : "img/default.jpg").replace(/^\/+/, "");
-  return `${root}/${path}`;
+  // biarkan URL absolut / data-url / blob-url / proxy API apa adanya
+  if (/^(https?:)?\/\//i.test(url) || url.startsWith("data:") || url.startsWith("blob:") || url.startsWith("/api/")) {
+    return url;
+  }
+
+  // URL relatif → gabung dengan BASE_URL, tetapi jangan bikin app crash
+  try {
+    return new URL(url.replace(/^\//, ""), base).toString();
+  } catch (e) {
+    console.warn("[imgSrc] fallback", e, { url, base });
+    return url; // terakhir, kembalikan apa adanya agar tidak crash
+  }
 };
