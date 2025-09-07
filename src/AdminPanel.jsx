@@ -459,19 +459,30 @@ function AddProductForm({ pin, products, setProducts, basePrice }) {
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
+            
+              setUploading(true);
               try {
-                setUploading(true);
-                // Upload ke R2 via Pages Function /api/upload
+                // upload ke R2 via /api/upload
                 const { key, url } = await uploadToR2(file, pin);
-                url && /^https?:\/\//.test(url) ? url : `/api/file?key=${key}`;
-                setForm((s) => ({ ...s, image: finalUrl })); // simpan FULL URL R2
+            
+                // tentukan URL akhir yang aman dipakai <img>
+                const finalUrl =
+                  url && /^https?:\/\//i.test(url) ? url : `/api/file?key=${key}`;
+            
+                // simpan ke form → preview langsung pakai URL ini
+                setForm((s) => ({ ...s, image: finalUrl }));
+            
+                // opsional: cek di console
+                console.log({ key, url, finalUrl });
               } catch (err) {
-                alert("Upload gagal: " + err.message);
                 console.error(err);
+                alert("Upload gagal: " + (err?.message || err));
+                // JANGAN pakai finalUrl di sini
               } finally {
                 setUploading(false);
               }
             }}
+
           />
           <Button
             type="button"
