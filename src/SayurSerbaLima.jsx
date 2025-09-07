@@ -297,7 +297,6 @@ useEffect(() => {
                 {products.slice(0,6).map((p)=> (
                   <motion.div key={p.id} whileHover={{ scale: 1.04 }} className="p-4 rounded-2xl bg-white shadow-sm border flex flex-col items-center">
                   <img
-                    <img
                       src={imgSrc(p.image)}
                       alt={p.name}
                       className="h-28 w-28 object-cover rounded-xl"
