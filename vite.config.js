@@ -4,32 +4,21 @@ import react from "@vitejs/plugin-react";
 import path from "node:path";
 
 export default defineConfig(() => {
-  const isCF = process.env.DEPLOY_TARGET === "cf"; // cf=Cloudflare(admin), gh=GitHub(store)
+  const target = process.env.DEPLOY_TARGET || "gh"; // "cf" utk Cloudflare, "gh" utk GitHub
+  const isCF = target === "cf";
+
   return {
     plugins: [react()],
-    base: isCF ? "/" : "/sayur5/",
+    base: isCF ? "/" : "/sayur5/", // <<< penting untuk GitHub Pages
     resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
-
-    // HANYA untuk dev lokal (vite dev). Abaikan saat build/CI.
-    server: {
-      proxy: {
-        "/api": {
-          target: "https://sayur5-bl6.pages.dev",
-          changeOrigin: true,
-          secure: true,
-          // rewrite optional kalau perlu:
-          // rewrite: (p) => p.replace(/^\/api/, "/api"),
-        },
-      },
-    },
-
     build: {
       outDir: "dist",
       rollupOptions: {
         input: isCF
-          ? { admin: path.resolve(__dirname, "admin/index.html") }
-          : { main: path.resolve(__dirname, "index.html") },
+          ? { admin: path.resolve(__dirname, "admin/index.html") } // Cloudflare: admin only
+          : { main: path.resolve(__dirname, "index.html") },       // GitHub: store only
       },
     },
+    // server.proxy hanya kepake saat `vite dev`, aman diabaikan di build
   };
 });
