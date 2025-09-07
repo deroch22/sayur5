@@ -607,13 +607,21 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
 
   const waLink = `https://wa.me/${toWA(storePhone)}?text=${orderText}`;
 
-  return (
+return (
+  <>
+    {/* Form data pembeli */}
     <div className="grid gap-3">
       <div className="grid md:grid-cols-2 gap-3">
         <label className="grid gap-1 text-sm">
           <span>Nama Penerima</span>
-          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nama lengkap" className="rounded-xl" />
+          <Input
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="Nama lengkap"
+            className="rounded-xl"
+          />
         </label>
+
         <label className="grid gap-1 text-sm">
           <span>No. HP</span>
           <Input
@@ -622,41 +630,59 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
             placeholder="08xxxxxxxxxx"
             className={`rounded-xl ${form.phone && !validPhone ? "border-red-500" : ""}`}
           />
-          {form.phone && !validPhone && <div className="text-xs text-red-600 mt-1">Nomor HP tidak valid. Contoh: 0812xxxxxxx</div>}
+          {form.phone && !validPhone && (
+            <div className="mt-1 text-xs text-red-600">
+              Nomor HP tidak valid. Contoh: 0812xxxxxxx
+            </div>
+          )}
         </label>
       </div>
 
       <label className="grid gap-1 text-sm">
         <span>Alamat Lengkap</span>
-        <Textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })}
-          placeholder="Jalan, RT/RW, Kel/Desa, Kecamatan, Kota" className="rounded-xl" />
+        <Textarea
+          value={form.address}
+          onChange={(e) => setForm({ ...form, address: e.target.value })}
+          placeholder="Jalan, RT/RW, Kel/Desa, Kecamatan, Kota"
+          className="rounded-xl"
+        />
       </label>
 
       <div className="grid md:grid-cols-2 gap-3">
         <label className="grid gap-1 text-sm">
           <span>Metode Pembayaran</span>
-          <select className="border rounded-xl h-10 px-3" value={form.payment}
-            onChange={(e) => setForm({ ...form, payment: e.target.value })}>
+          <select
+            className="h-10 rounded-xl border px-3"
+            value={form.payment}
+            onChange={(e) => setForm({ ...form, payment: e.target.value })}
+          >
             <option value="transfer">Transfer Bank</option>
             <option value="ewallet">E-Wallet (Dana/OVO/GoPay)</option>
             <option value="cod">COD (Cash on Delivery)</option>
           </select>
         </label>
+
         <label className="grid gap-1 text-sm">
           <span>Catatan</span>
-          <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })}
-            placeholder="Contoh: tanpa cabe, kirim siang" className="rounded-xl" />
+          <Input
+            value={form.note}
+            onChange={(e) => setForm({ ...form, note: e.target.value })}
+            placeholder="Contoh: tanpa cabe, kirim siang"
+            className="rounded-xl"
+          />
         </label>
       </div>
+    </div>
 
-      return (
-  <>
+    {/* Ringkasan */}
     <div className="mt-2 rounded-2xl border bg-slate-50 p-3">
       <div className="mb-2 font-semibold">Ringkasan</div>
       <div className="space-y-1 text-sm">
         {items.map((it) => (
           <div key={it.id} className="flex justify-between">
-            <span>{it.name} x{it.qty}</span>
+            <span>
+              {it.name} x{it.qty}
+            </span>
             <span>{toIDR(it.price * it.qty)}</span>
           </div>
         ))}
@@ -675,11 +701,13 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
       </div>
     </div>
 
+    {/* CTA WhatsApp */}
     <div className="mt-1 flex flex-col gap-2 sm:flex-row">
       <a
         href={waLink}
         target="_blank"
         rel="noreferrer"
+        aria-disabled={!canSubmit}
         className={`inline-flex h-11 items-center justify-center rounded-2xl px-4 font-medium text-white bg-emerald-600 ${
           !canSubmit ? "pointer-events-none opacity-50" : ""
         }`}
@@ -689,5 +717,6 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
     </div>
   </>
 );
+
 
 
