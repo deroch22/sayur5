@@ -68,11 +68,6 @@ const closeCheckoutHandler = () => setOpenCheckout(false);
   console.log('cartOpen:', cartOpen);
 }, [cartOpen]);
 
- // simpan cart tiap kali berubah
- useEffect(() => {
-   writeJSON("sayur5.cart", cart);
- }, [cart]);
-
   // Settings (persist)
   const [freeOngkirMin, setFreeOngkirMin] = useState(() => {
   const v = parseInt(readStr("sayur5_freeMin", "30000"), 10);
@@ -401,9 +396,9 @@ useEffect(() => {
         </div>
       </footer>
 
-          <CartSheet
+          <CartDrawer
           open={cartOpen}
-          onOpenChange={setCartOpen}
+          onClose={() => setCartOpen(false)}
           items={items}
           totalQty={totalQty}
           subtotal={subtotal}
@@ -461,9 +456,9 @@ function CartButton({ totalQty, onOpen }) {
 }
 
 
-function CartSheet({
+function CartDrawer({
   open,
-  onOpenChange,
+  onClose,
   items,
   totalQty,
   subtotal,
@@ -476,32 +471,25 @@ function CartSheet({
   freeOngkirMin,
   ongkir,
 }) {
+  if (!open) return null;
   const list = Array.isArray(items) ? items : [];
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-       <SheetContent className="w-full sm:max-w-md z-[100]">
-        {/* Kembali = tutup sheet */}
-        <div className="mt-1 mb-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="rounded-xl"
-            onClick={() => onOpenChange(false)}
-          >
+    <div className="fixed inset-0 z-[100]">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl border-l p-4 overflow-y-auto">
+        <div className="flex items-center justify-between mb-2">
+          <Button variant="ghost" size="sm" className="rounded-xl" onClick={onClose}>
             <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
           </Button>
+          <div className="text-sm text-slate-500">Item: {totalQty}</div>
         </div>
 
-        <SheetHeader>
-          <SheetTitle>Keranjang Belanja</SheetTitle>
-        </SheetHeader>
+        <h3 className="text-lg font-semibold mb-3">Keranjang Belanja</h3>
 
-        <div className="mt-4 space-y-4">
+        <div className="space-y-4">
           {list.length === 0 && (
-            <div className="text-sm text-slate-500">
-              Keranjang kosong. Yuk pilih sayur dulu.
-            </div>
+            <div className="text-sm text-slate-500">Keranjang kosong. Yuk pilih sayur dulu.</div>
           )}
 
           {list.map((it) => (
@@ -534,7 +522,8 @@ function CartSheet({
         </div>
 
         <div className="mt-4 flex gap-2">
-          <Button className="flex-1 rounded-2xl" disabled={list.length === 0} onClick={onOpenCheckout}>
+          <Button className="flex-1 rounded-2xl" disabled={list.length === 0}
+            onClick={() => { onClose(); onOpenCheckout(); }}>
             <CreditCard className="w-4 h-4 mr-2" /> Checkout
           </Button>
           <Button variant="ghost" className="rounded-2xl" onClick={clearCart} disabled={list.length === 0}>
@@ -549,8 +538,8 @@ function CartSheet({
             <div className="flex items-center justify-between"><span>Biaya Ongkir</span><span className="font-medium">{toIDR(ongkir)}</span></div>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </div>
+    </div>
   );
 }
 
