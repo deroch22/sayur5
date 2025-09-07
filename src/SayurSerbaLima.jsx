@@ -449,22 +449,22 @@ function CartSheet({
     setOpen(location.pathname === "/cart");
   }, [location.pathname]);
 
-  const handleOpenChange = (v) => {
-    setOpen(v);
-    if (v) {
-      // buka -> dorong entry baru supaya tombol Back menutup dulu
-      navigate("/cart");
-    } else {
-      // tutup -> kalau memang lagi di /cart, mundur satu langkah
-      if (location.pathname === "/cart") navigate(-1);
-    }
-  };
+ const handleOpenChange = (v) => {
+  setOpen(v);
+  if (v) {
+    // buka -> buat entri /cart
+    navigate("/cart");
+  } else {
+    // tutup -> SELALU ke home, jangan keluar web
+    navigate("/", { replace: true });
+  }
+};
+
 
   const backFromCart = () => {
-    // tutup via tombol back
-    setOpen(false);
-    if (location.pathname === "/cart") navigate(-1);
-  };
+  setOpen(false);
+  navigate("/", { replace: true }); // pastikan kembali ke beranda
+};
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
