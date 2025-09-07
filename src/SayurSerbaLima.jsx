@@ -57,6 +57,7 @@ export default function SayurSerbaLima() {
  // baca cart aman dari storage (fallback: objek kosong)
  const [cart, setCart] = useState(() => readJSON("sayur5.cart", {}));
   const [openCheckout, setOpenCheckout] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
 // handler aman (dibagikan ke child)
 const openCheckoutHandler  = () => setOpenCheckout(true);
 const closeCheckoutHandler = () => setOpenCheckout(false);
@@ -222,6 +223,8 @@ useEffect(() => {
             </Badge>
 
             <CartSheet
+              open={cartOpen}
+              onOpenChange={setCartOpen}
               items={items}
               totalQty={totalQty}
               subtotal={subtotal}
@@ -257,6 +260,8 @@ useEffect(() => {
             </Sheet>
 
             <CartSheet
+              open={cartOpen}
+              onOpenChange={setCartOpen}
               items={items}
               totalQty={totalQty}
               subtotal={subtotal}
@@ -428,33 +433,22 @@ useEffect(() => {
 
 /* ===== Subcomponents ===== */
 function CartSheet({
-  items, totalQty, subtotal, shippingFee, grandTotal,
-  add, sub, clearCart, onOpenCheckout, freeOngkirMin, ongkir,
+  open,
+  onOpenChange,
+  items,
+  totalQty,
+  subtotal,
+  shippingFee,
+  grandTotal,
+  add,
+  sub,
+  clearCart,
+  onOpenCheckout,
+  freeOngkirMin,
+  ongkir,
 }) {
-  const navigate = useNavigate();
-  const [sp, setSp] = useSearchParams();
-
-  // Buka jika URL punya ?cart=1
-  const open = sp.get("cart") === "1";
-
-  const openCart = () => {
-    const next = new URLSearchParams(sp);
-    next.set("cart", "1");
-    setSp(next, { replace: false });       // tambah history, Back menutup dulu
-  };
-
-  const closeCart = () => {
-    const next = new URLSearchParams(sp);
-    next.delete("cart");
-    setSp(next, { replace: true });        // balik ke /#/ tanpa keluar situs
-    // (opsional) scroll ke atas:
-    // window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const handleOpenChange = (v) => (v ? openCart() : closeCart());
-
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger asChild>
         <Button className="rounded-2xl" variant="default">
           <ShoppingCart className="w-4 h-4 mr-2" />
@@ -468,8 +462,14 @@ function CartSheet({
       </SheetTrigger>
 
       <SheetContent className="w-full sm:max-w-md">
+        {/* Tombol Kembali: cukup tutup sheet */}
         <div className="mt-1 mb-2">
-          <Button variant="ghost" size="sm" className="rounded-xl" onClick={closeCart}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="rounded-xl"
+            onClick={() => onOpenChange(false)}
+          >
             <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
           </Button>
         </div>
@@ -478,20 +478,44 @@ function CartSheet({
           <SheetTitle>Keranjang Belanja</SheetTitle>
         </SheetHeader>
 
-        {/* ... (isi keranjangmu tetap sama) ... */}
+        {/* …ISI KERANJANGMU TETAP… */}
 
         <div className="mt-4 flex gap-2">
-          <Button className="flex-1 rounded-2xl" disabled={items.length === 0} onClick={onOpenCheckout}>
+          <Button
+            className="flex-1 rounded-2xl"
+            disabled={items.length === 0}
+            onClick={onOpenCheckout}
+          >
             <CreditCard className="w-4 h-4 mr-2" /> Checkout
           </Button>
-          <Button variant="ghost" className="rounded-2xl" onClick={clearCart} disabled={items.length === 0}>
+          <Button
+            variant="ghost"
+            className="rounded-2xl"
+            onClick={clearCart}
+            disabled={items.length === 0}
+          >
             <X className="w-4 h-4 mr-2" /> Kosongkan
           </Button>
+        </div>
+
+        <div className="mt-8 p-3 rounded-xl bg-slate-50 text-xs">
+          <div className="font-semibold mb-2">Ongkir Ditentukan Admin</div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex items-center justify-between">
+              <span>Min Gratis Ongkir</span>
+              <span className="font-medium">{toIDR(freeOngkirMin)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Biaya Ongkir</span>
+              <span className="font-medium">{toIDR(ongkir)}</span>
+            </div>
+          </div>
         </div>
       </SheetContent>
     </Sheet>
   );
 }
+
 
 
 
