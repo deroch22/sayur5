@@ -22,3 +22,4 @@ export default defineConfig(() => {
     // server.proxy hanya kepake saat `vite dev`, aman diabaikan di build
   };
 });
+
