@@ -439,6 +439,12 @@ function AddProductForm({ pin, products, setProducts, basePrice }) {
             src={imgSrc(form.image || DEFAULT_IMG)}
             alt="preview"
             className="w-16 h-16 object-cover rounded-lg border"
+                       onError={(e) => {
+              if (!e.currentTarget.dataset.fallback) {
+                e.currentTarget.dataset.fallback = "1";
+                e.currentTarget.src = imgSrc(""); // fallback default.jpg
+              }
+            }}
           />
           <div className="grid gap-1 text-sm flex-1">
             <span>URL Gambar</span>
@@ -547,6 +553,13 @@ function ProductsManager({ products, setProducts }) {
                 src={imgSrc(p.image || DEFAULT_IMG)}
                 alt={p.name}
                 className="w-14 h-14 rounded-lg object-cover border"
+                 onError={(e) => {
+                  if (!e.currentTarget.dataset.fallback) {
+                    e.currentTarget.dataset.fallback = "1";
+                    e.currentTarget.src = imgSrc(""); // fallback default.jpg
+                  }
+                }}
+                
               />
             </div>
 
