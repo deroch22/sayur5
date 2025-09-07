@@ -112,9 +112,6 @@ useEffect(() => {
   
  const [orders, setOrders] = useState(() => readJSON("sayur5_orders", []));
   
-  useEffect(() => { writeJSON("sayur5_products", products); }, [products]);
-  useEffect(() => { writeJSON("sayur5_orders", orders); }, [orders]);
-
   // Sanitize cart when products change
   useEffect(() => {
     setCart((c) => {
