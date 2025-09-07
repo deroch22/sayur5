@@ -572,14 +572,11 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2 mt-1">
-        <a href={waLink} target="_blank" rel="noreferrer"
-           className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${!canSubmit ? "opacity-50 pointer-events-none" : ""}`}>
-          Pesan via WhatsApp
-        </a>
-        <Button variant="outline" className="rounded-2xl h-11" disabled={!canSubmit} onClick={() => onSubmit(form)}>
-          Simpan Pesanan
-        </Button>
-      </div>
+    <a href={waLink} target="_blank" rel="noreferrer"
+       className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${!canSubmit ? "opacity-50 pointer-events-none" : ""}`}>
+      Pesan via WhatsApp
+    </a>
+  </div>
 
       <div className="text-xs text-slate-500">*Tombol WhatsApp akan membuka chat dengan format pesanan otomatis.</div>
     </div>
