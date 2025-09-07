@@ -84,6 +84,7 @@ const closeCheckoutHandler = () => setOpenCheckout(false);
     readStr("sayur5_storePhone", "081233115194")
   );
 
+  useEffect(() => { writeJSON("sayur5.cart", cart); }, [cart]);
   useEffect(() => { writeStr("sayur5_freeMin", String(freeOngkirMin)); }, [freeOngkirMin]);
   useEffect(() => { writeStr("sayur5_ongkir", String(ongkir)); }, [ongkir]);
   useEffect(() => { writeStr("sayur5_price", String(basePrice)); }, [basePrice]);
@@ -132,13 +133,23 @@ useEffect(() => {
     );
   }, [query, products]);
 
+  // daftar item di keranjang (aman)
   const items = useMemo(() => {
-    return Object.entries(cart).map(([id, qty]) => {
-      const p = products.find((x) => x.id === id);
-      const price = p ? priceOf(p, basePrice) : basePrice;
-      return p ? { ...p, id, qty, price } : { id, name: "(produk tidak tersedia)", qty, price: basePrice };
-    });
+    const entries = Object.entries(cart ?? {});
+    if (!Array.isArray(products) || entries.length === 0) return [];
+  
+    return entries
+      .map(([id, q]) => {
+        const qty = Number.parseInt(q, 10) || 0;
+        const p = products.find(x => x.id === id);
+        const price = p ? priceOf(p, basePrice) : basePrice;
+        return p
+          ? { ...p, id, qty, price }
+          : { id, name: "(produk tidak tersedia)", qty, price };
+      })
+      .filter(it => it.qty > 0);
   }, [cart, products, basePrice]);
+
 
   const subtotal = useMemo(() => items.reduce((s, it) => s + it.qty * it.price, 0), [items]);
   const shippingFee = useMemo(() => computeShippingFee(subtotal, freeOngkirMin, ongkir), [subtotal, freeOngkirMin, ongkir]);
@@ -447,10 +458,18 @@ function CartSheet({
   freeOngkirMin,
   ongkir,
 }) {
+  // Guard: pastikan array supaya tidak "items.map is not a function"
+  const list = Array.isArray(items) ? items : [];
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger asChild>
-        <Button className="rounded-2xl" variant="default">
+        {/* panggil onOpenChange(true) eksplisit */}
+        <Button
+          className="rounded-2xl"
+          variant="default"
+          onClick={() => onOpenChange(true)}
+        >
           <ShoppingCart className="w-4 h-4 mr-2" />
           Keranjang
           {totalQty > 0 && (
@@ -462,7 +481,7 @@ function CartSheet({
       </SheetTrigger>
 
       <SheetContent className="w-full sm:max-w-md">
-        {/* Tombol Kembali: cukup tutup sheet */}
+        {/* Tombol Kembali: tutup sheet lewat state parent */}
         <div className="mt-1 mb-2">
           <Button
             variant="ghost"
@@ -478,12 +497,46 @@ function CartSheet({
           <SheetTitle>Keranjang Belanja</SheetTitle>
         </SheetHeader>
 
-        {/* …ISI KERANJANGMU TETAP… */}
+        <div className="mt-4 space-y-4">
+          {list.length === 0 && (
+            <div className="text-sm text-slate-500">
+              Keranjang kosong. Yuk pilih sayur dulu.
+            </div>
+          )}
+
+          {list.map((it) => (
+            <Card key={it.id} className="rounded-2xl">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-xl">🥬</div>
+                <div className="flex-1">
+                  <div className="font-medium leading-tight">{it.name}</div>
+                  <div className="text-xs text-slate-500">{toIDR(it.price)} / pack</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="icon" variant="outline" className="rounded-full" onClick={() => sub(it.id)}>
+                    <Minus className="w-4 h-4" />
+                  </Button>
+                  <div className="w-8 text-center font-semibold">{it.qty}</div>
+                  <Button size="icon" className="rounded-full" onClick={() => add(it.id)}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="w-20 text-right font-semibold">{toIDR(it.price * it.qty)}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="mt-6 border-t pt-4 space-y-1 text-sm">
+          <div className="flex justify-between"><span>Subtotal</span><span>{toIDR(subtotal)}</span></div>
+          <div className="flex justify-between"><span>Ongkir</span><span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span></div>
+          <div className="flex justify-between font-bold text-base"><span>Total</span><span>{toIDR(grandTotal)}</span></div>
+        </div>
 
         <div className="mt-4 flex gap-2">
           <Button
             className="flex-1 rounded-2xl"
-            disabled={items.length === 0}
+            disabled={list.length === 0}
             onClick={onOpenCheckout}
           >
             <CreditCard className="w-4 h-4 mr-2" /> Checkout
@@ -492,7 +545,7 @@ function CartSheet({
             variant="ghost"
             className="rounded-2xl"
             onClick={clearCart}
-            disabled={items.length === 0}
+            disabled={list.length === 0}
           >
             <X className="w-4 h-4 mr-2" /> Kosongkan
           </Button>
@@ -501,21 +554,14 @@ function CartSheet({
         <div className="mt-8 p-3 rounded-xl bg-slate-50 text-xs">
           <div className="font-semibold mb-2">Ongkir Ditentukan Admin</div>
           <div className="grid grid-cols-2 gap-2">
-            <div className="flex items-center justify-between">
-              <span>Min Gratis Ongkir</span>
-              <span className="font-medium">{toIDR(freeOngkirMin)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Biaya Ongkir</span>
-              <span className="font-medium">{toIDR(ongkir)}</span>
-            </div>
+            <div className="flex items-center justify-between"><span>Min Gratis Ongkir</span><span className="font-medium">{toIDR(freeOngkirMin)}</span></div>
+            <div className="flex items-center justify-between"><span>Biaya Ongkir</span><span className="font-medium">{toIDR(ongkir)}</span></div>
           </div>
         </div>
       </SheetContent>
     </Sheet>
   );
 }
-
 
 
 
