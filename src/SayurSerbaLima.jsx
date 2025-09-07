@@ -423,29 +423,33 @@ useEffect(() => {
 
 /* ===== Subcomponents ===== */
 function CartSheet({
-  items, totalQty, subtotal, shippingFee, grandTotal,
-  add, sub, clearCart, onOpenCheckout, freeOngkirMin, ongkir,
- }) {
+  items,
+  totalQty,
+  subtotal,
+  shippingFee,
+  grandTotal,
+  add,
+  sub,
+  clearCart,
+  onOpenCheckout,
+  freeOngkirMin,
+  ongkir,
+}) {
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
-  // Buka otomatis bila path = /cart
+  // buka otomatis jika URL = /cart
   useEffect(() => {
     setOpen(location.pathname === "/cart");
   }, [location.pathname]);
 
   const handleOpenChange = (v) => {
     setOpen(v);
-    if (v) {
-      // buka keranjang -> dorong route /cart (biar ada history)
-      navigate("/cart");
-    } else {
-      // tutup -> kembali ke home, jangan keluar situs
-      navigate("/", { replace: true });
-    }
+    if (v) navigate("/cart");                 // buka -> dorong /cart (biar tombol Back menutup)
+    else navigate("/", { replace: true });    // tutup -> kembali ke /
   };
-}) {
+
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
@@ -467,7 +471,9 @@ function CartSheet({
 
         <div className="mt-4 space-y-4">
           {items.length === 0 && (
-            <div className="text-sm text-slate-500">Keranjang kosong. Yuk pilih sayur dulu.</div>
+            <div className="text-sm text-slate-500">
+              Keranjang kosong. Yuk pilih sayur dulu.
+            </div>
           )}
 
           {items.map((it) => (
@@ -479,9 +485,13 @@ function CartSheet({
                   <div className="text-xs text-slate-500">{toIDR(it.price)} / pack</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button size="icon" variant="outline" className="rounded-full" onClick={() => sub(it.id)}><Minus className="w-4 h-4" /></Button>
+                  <Button size="icon" variant="outline" className="rounded-full" onClick={() => sub(it.id)}>
+                    <Minus className="w-4 h-4" />
+                  </Button>
                   <div className="w-8 text-center font-semibold">{it.qty}</div>
-                  <Button size="icon" className="rounded-full" onClick={() => add(it.id)}><Plus className="w-4 h-4" /></Button>
+                  <Button size="icon" className="rounded-full" onClick={() => add(it.id)}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
                 </div>
                 <div className="w-20 text-right font-semibold">{toIDR(it.price * it.qty)}</div>
               </CardContent>
@@ -515,6 +525,7 @@ function CartSheet({
     </Sheet>
   );
 }
+
 
 function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, storePhone }) {
   const [form, setForm] = useState({ name: "", phone: "", address: "", payment: "transfer", note: "" });
