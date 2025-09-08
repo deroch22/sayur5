@@ -298,8 +298,10 @@ useEffect(() => {
   </Sheet>
 
   <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
-</div>
-
+      </div>
+    </div>
+  </div>
+</header>
 
       {/* Hero */}
       <section className="mx-auto max-w-6xl px-4 pt-10">
