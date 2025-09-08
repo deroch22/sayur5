@@ -211,10 +211,9 @@ useEffect(() => {
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white text-slate-800">
       <header className="sticky top-0 z-40 backdrop-blur bg-white/70 border-b">
   <div className="mx-auto max-w-6xl px-4 py-3">
-    {/* baris atas: brand • search • keranjang */}
     <div className="flex items-center gap-3">
-      {/* Brand */}
-      <div className="flex items-center gap-2 shrink-0">
+      {/* Brand: sembunyikan di mobile, tampil di ≥ md */}
+      <div className="hidden md:flex items-center gap-2 shrink-0">
         <div className="p-2 rounded-2xl bg-emerald-100 text-emerald-700">
           <Leaf className="w-5 h-5" />
         </div>
@@ -226,7 +225,7 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Search – dipakai untuk mobile & desktop */}
+      {/* Search: full width di semua ukuran layar */}
       <form onSubmit={handleSearchSubmit} className="flex-1">
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -237,7 +236,6 @@ useEffect(() => {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Cari bayam, kangkung, wortel…"
             className="pl-9 rounded-2xl w-full"
-            aria-label="Cari produk"
           />
         </div>
       </form>
@@ -248,31 +246,22 @@ useEffect(() => {
       </div>
     </div>
 
-    {/* Badge info (hanya desktop besar) */}
-    <div className="hidden lg:flex items-center gap-2 mt-2">
-      <Badge variant="secondary" className="rounded-full gap-1">
-        <Truck className="w-3 h-3" /> Antar cepat area kota
-      </Badge>
-      <Badge variant="outline" className="rounded-full gap-1">
-        <BadgePercent className="w-3 h-3" /> Gratis ongkir min {toIDR(freeOngkirMin)}
-      </Badge>
-    </div>
-
-    {/* Quick suggestions (opsional, hanya mobile) */}
-    {query && (
-      <ul className="mt-2 lg:hidden divide-y rounded-xl border bg-white overflow-hidden">
-        {filtered.slice(0, 6).map((p) => (
-          <li key={p.id}>
-            <button
-              type="button"
-              className="w-full text-left py-2 px-3"
-              onClick={() => focusCatalog(`prod-${p.id}`)}
-            >
-              {p.name}
-            </button>
-          </li>
-        ))}
-        {filtered.length === 0 && (
+    {/* Quick suggestions: hanya muncul saat ada query, dan hanya di mobile */}
+    {query.trim() !== "" && (
+      <ul className="mt-2 md:hidden divide-y rounded-xl border bg-white overflow-hidden">
+        {filtered.length > 0 ? (
+          filtered.slice(0, 6).map((p) => (
+            <li key={p.id}>
+              <button
+                type="button"
+                className="w-full text-left py-2 px-3"
+                onClick={() => focusCatalog(p.id)}
+              >
+                {p.name}
+              </button>
+            </li>
+          ))
+        ) : (
           <li className="py-2 px-3 text-sm text-slate-500">Tidak ada hasil.</li>
         )}
       </ul>
@@ -281,9 +270,9 @@ useEffect(() => {
 </header>
 
 
+
       
      {/* Topbar */}
-<header className="sticky top-0 z-40 backdrop-blur bg-white/70 border-b">
   <div className="mx-auto max-w-6xl px-4 py-3">
     <div className="flex items-center justify-between">
       {/* Brand */}
