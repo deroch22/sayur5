@@ -288,8 +288,7 @@ useEffect(() => {
         </div>
       </div> 
     </div>   
-  </div>     
-</header>
+  </div> 
 
 
       {/* Hero */}
