@@ -257,55 +257,47 @@ useEffect(() => {
       </Button>
     </SheetTrigger>
 
-<SheetContent side="top">
-  <div className="mt-4 grid gap-3">
-    <Input
-      autoFocus
-      type="search"
-      enterKeyHint="search"
-      placeholder="Cari sayur…"
-      value={query}
-      onChange={(e) => setQuery(e.target.value)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          closeSearchAndScroll("catalog");
-        }
-      }}
-    />
+<SheetContent side="top" onOpenAutoFocus={(e) => e.preventDefault()}>
+    <div className="mt-4 grid gap-3">
+      <Input
+        autoFocus
+        type="search"
+        enterKeyHint="search"
+        placeholder="Cari sayur…"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") closeSearchAndScroll("catalog");
+        }}
+      />
 
-    {query && filtered.length > 0 && (
-      <ul className="divide-y">
-        {filtered.slice(0, 8).map((p) => (
-          <li key={p.id}>
-            <button
-              type="button"
-              className="w-full text-left py-2"
-              onPointerUp={() => closeSearchAndScroll(`prod-${p.id}`)}
-              onClick={() => closeSearchAndScroll(`prod-${p.id}`)}
-            >
-              {p.name}
-            </button>
-          </li>
-        ))}
-      </ul>
-    )}
+      {query && filtered.length > 0 && (
+        <ul className="divide-y">
+          {filtered.slice(0, 8).map((p) => (
+            <li key={p.id}>
+              <button
+                className="w-full text-left py-2"
+                onClick={() => closeSearchAndScroll(`prod-${p.id}`)}
+              >
+                {p.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
-    {query && filtered.length === 0 && (
-      <div className="text-sm text-slate-500">Tidak ada hasil.</div>
-    )}
+      {query && filtered.length === 0 && (
+        <div className="text-sm text-slate-500">Tidak ada hasil.</div>
+      )}
 
-    {/* Tombol tutup & scroll ke katalog */}
-    <button
-      type="button"
-      className="w-full rounded-2xl border px-4 py-3 text-center text-slate-700"
-      onPointerUp={() => closeSearchAndScroll("catalog")}
-      onClick={() => closeSearchAndScroll("catalog")}
-    >
-      Tutup & lihat hasil di katalog
-    </button>
-  </div>
-</SheetContent>
-    
+      <button
+        className="mt-2 rounded-2xl border px-4 py-3 text-center"
+        onClick={() => closeSearchAndScroll("catalog")}
+      >
+        Tutup & lihat hasil di katalog
+      </button>
+    </div>
+  </SheetContent>   
   </Sheet>
   <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
       </div>
