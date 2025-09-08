@@ -55,7 +55,8 @@ export default function SayurSerbaLima() {
  // UI state
  const [query, setQuery] = useState("");
  // baca cart aman dari storage (fallback: objek kosong)
- const [cart, setCart] = useState(() => readJSON("sayur5.cart", {}));
+  const [cart, setCart] = useState(() => readJSON("sayur5.cart", {}));
+  const [searchOpen, setSearchOpen] = useState(false);
   const [openCheckout, setOpenCheckout] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const openCart  = () => setCartOpen(true);
@@ -238,34 +239,67 @@ useEffect(() => {
       />
       </div>
 
-      {/* Mobile controls */}
-      <div className="md:hidden flex items-center gap-2">
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="secondary" size="icon" className="rounded-2xl">
-              <Search className="w-4 h-4" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="top">
-            <div className="mt-4">
-              <Input
-                autoFocus
-                placeholder="Cari sayur…"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
+     {/* Mobile controls */}
+<div className="md:hidden flex items-center gap-2">
+  <Sheet open={searchOpen} onOpenChange={setSearchOpen}>
+    <SheetTrigger asChild>
+      <Button variant="secondary" size="icon" className="rounded-2xl">
+        <Search className="w-4 h-4" />
+      </Button>
+    </SheetTrigger>
 
-        <CartButton
-          totalQty={totalQty}
-          onOpen={() => { console.log('open cart'); setCartOpen(true); }}
+    <SheetContent side="top">
+      <div className="mt-4 grid gap-3">
+        <Input
+          autoFocus
+          type="search"
+          enterKeyHint="search"
+          placeholder="Cari sayur…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              setSearchOpen(false);
+              setTimeout(() => {
+                document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
+              }, 0);
+            }
+          }}
         />
+
+        {/* Quick results */}
+        {query && filtered.length > 0 && (
+          <ul className="divide-y">
+            {filtered.slice(0, 8).map((p) => (
+              <li key={p.id}>
+                <button
+                  className="w-full text-left py-2"
+                  onClick={() => {
+                    setSearchOpen(false);
+                    setTimeout(() => {
+                      document
+                        .getElementById(`prod-${p.id}`)
+                        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }, 0);
+                  }}
+                >
+                  {p.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {query && filtered.length === 0 && (
+          <div className="text-sm text-slate-500">Tidak ada hasil.</div>
+        )}
       </div>
-    </div>
-  </div>
-</header>
+    </SheetContent>
+  </Sheet>
+
+  <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
+</div>
+
 
       {/* Hero */}
       <section className="mx-auto max-w-6xl px-4 pt-10">
@@ -288,7 +322,7 @@ useEffect(() => {
               <div className="absolute -inset-4 bg-emerald-200/40 blur-2xl rounded-[2rem]"></div>
               <div className="relative grid grid-cols-3 gap-3">
                 {products.slice(0,6).map((p)=> (
-                  <motion.div key={p.id} whileHover={{ scale: 1.04 }} className="p-4 rounded-2xl bg-white shadow-sm border flex flex-col items-center">
+                  <motion.div key={p.id} id={`prod-${p.id}`} whileHover={{ scale: 1.04 }} className="p-4 rounded-2xl bg-white shadow-sm border flex flex-col items-center">
                   <img
                       src={imgSrc(p.image)}
                       alt={p.name}
@@ -314,7 +348,7 @@ useEffect(() => {
       </section>
 
       {/* Catalog */}
-      <section className="mx-auto max-w-6xl px-4 mt-10 mb-20">
+      <section id="catalog" className="mx-auto max-w-6xl px-4 mt-10 mb-20">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl md:text-2xl font-bold">Katalog Hari Ini</h2>
           <div className="hidden md:flex items-center gap-2 text-sm text-slate-500">
@@ -324,7 +358,7 @@ useEffect(() => {
         <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           <AnimatePresence>
             {filtered.map((p) => (
-              <motion.div key={p.id} layout initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} exit={{opacity:0}}>
+              <motion.div key={p.id} id={`prod-${p.id}`} layout initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} exit={{opacity:0}}>
                 <Card className="rounded-2xl overflow-hidden group">
                   <CardHeader className="p-0">
                   <div className="h-28 bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center">
@@ -411,28 +445,44 @@ useEffect(() => {
 
 
       {/* Checkout */}
-      <Dialog open={openCheckout} onOpenChange={setOpenCheckout}>
-        <DialogContent className="sm:max-w-lg rounded-2xl">
-          <DialogHeader className="flex items-center justify-between">
-            <Button variant="ghost" size="sm" onClick={closeCheckoutHandler}>
-              <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
-            </Button>
-             <DialogTitle>Checkout</DialogTitle>
-           </DialogHeader>
-          {items.length === 0 ? (
-            <div className="text-sm text-slate-500">Keranjang kosong.</div>
-          ) : (
-            <CheckoutForm
-              items={items}
-              subtotal={subtotal}
-              shippingFee={shippingFee}
-              grandTotal={grandTotal}
-              onSubmit={(payload)=>{ createOrder(payload); alert("..."); closeCheckoutHandler(); }}
-              storePhone={storePhone}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+     <Dialog open={openCheckout} onOpenChange={setOpenCheckout}>
+  {/* p-0: biar wrapper scroll-nya full; rounded tetap */}
+  <DialogContent className="sm:max-w-lg p-0 rounded-2xl">
+    {/* AREA SCROLL */}
+    <div className="max-h-[85dvh] overflow-y-auto overscroll-contain">
+      {/* Header sticky supaya tombol Kembali selalu terlihat */}
+      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
+        <DialogHeader className="flex items-center justify-between p-2">
+          <Button variant="ghost" size="sm" onClick={closeCheckoutHandler}>
+            <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
+          </Button>
+          <DialogTitle>Checkout</DialogTitle>
+        </DialogHeader>
+      </div>
+
+      {/* Konten form */}
+      <div className="p-4">
+        {items.length === 0 ? (
+          <div className="text-sm text-slate-500">Keranjang kosong.</div>
+        ) : (
+          <CheckoutForm
+            items={items}
+            subtotal={subtotal}
+            shippingFee={shippingFee}
+            grandTotal={grandTotal}
+            onSubmit={(payload) => {
+              createOrder(payload);
+              alert("Pesanan dicatat! Admin akan menghubungi via WhatsApp.");
+              closeCheckoutHandler();
+            }}
+            storePhone={storePhone}
+          />
+        )}
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
     </div>
   );
 }
