@@ -64,25 +64,19 @@ export default function SayurSerbaLima() {
 // handler aman (dibagikan ke child)
 const openCheckoutHandler  = () => setOpenCheckout(true);
 const closeCheckoutHandler = () => setOpenCheckout(false);
-// --- helper untuk tutup sheet + scroll 
-const sheetRef = useRef(null);  
-const closeSearchAndScroll = (anchorId = "catalog") => {
-  setSearchOpen(false);
-
-  const el = sheetRef.current;
-  const go = () =>
-    document.getElementById(anchorId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-
-  if (el) {
-    const handler = () => { go(); el.removeEventListener("transitionend", handler); };
-    el.addEventListener("transitionend", handler, { once: true });
-
-    // fallback kalau transitionend nggak kebaca (mis. reduce-motion)
-    setTimeout(go, 450);
-  } else {
-    setTimeout(go, 450);
-  }
+const focusCatalog = (id) => {
+  const el = id ? document.getElementById(`prod-${id}`) : document.getElementById("catalog");
+  el?.scrollIntoView({ behavior: "smooth", block: "start" });
 };
+
+const handleSearchSubmit = (e) => {
+  e.preventDefault();
+  const first = filtered[0]?.id;
+  focusCatalog(first); // jika ada hasil, ke produk pertama; kalau tidak ada, tetap ke katalog
+};
+
+ 
+
 
 
   useEffect(() => {
@@ -218,6 +212,61 @@ useEffect(() => {
   // UI
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white text-slate-800">
+      <header className="sticky top-0 z-40 backdrop-blur bg-white/70 border-b">
+  <div className="mx-auto max-w-6xl px-4 py-3">
+    <div className="flex items-center gap-3">
+      {/* Brand */}
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="p-2 rounded-2xl bg-emerald-100 text-emerald-700"><Leaf className="w-5 h-5" /></div>
+        <div className="leading-tight">
+          <div className="font-bold">Sayur5</div>
+          <div className="text-xs text-slate-500 -mt-0.5">Serba {toIDR(basePrice)} — Fresh Setiap Hari</div>
+        </div>
+      </div>
+
+      {/* Search */}
+      <form onSubmit={handleSearchSubmit} className="flex-1">
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Input
+            type="search"
+            enterKeyHint="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Cari bayam, kangkung, wortel…"
+            className="pl-9 rounded-2xl w-full"
+          />
+        </div>
+      </form>
+
+      {/* Keranjang */}
+      <div className="shrink-0">
+        <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
+      </div>
+    </div>
+
+    {/* Quick suggestions (opsional, hanya mobile) */}
+    {query && (
+      <ul className="mt-2 lg:hidden divide-y rounded-xl border bg-white overflow-hidden">
+        {filtered.slice(0, 6).map((p) => (
+          <li key={p.id}>
+            <button
+              type="button"
+              className="w-full text-left py-2 px-3"
+              onClick={() => focusCatalog(p.id)}
+            >
+              {p.name}
+            </button>
+          </li>
+        ))}
+        {filtered.length === 0 && (
+          <li className="py-2 px-3 text-sm text-slate-500">Tidak ada hasil.</li>
+        )}
+      </ul>
+    )}
+  </div>
+</header>
+
       
      {/* Topbar */}
 <header className="sticky top-0 z-40 backdrop-blur bg-white/70 border-b">
@@ -235,91 +284,6 @@ useEffect(() => {
           </div>
         </div>
       </div>
-
-      {/* Desktop controls */}
-      <div className="hidden md:flex items-center gap-3">
-        <div className="relative w-72">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Cari bayam, kangkung, wortel…"
-            className="pl-9 rounded-2xl"
-          />
-        </div>
-        <Badge variant="secondary" className="rounded-full hidden lg:inline-flex gap-1">
-          <Truck className="w-3 h-3" /> Antar cepat area kota
-        </Badge>
-        <Badge variant="outline" className="rounded-full hidden lg:inline-flex gap-1">
-          <BadgePercent className="w-3 h-3" /> Gratis ongkir min {toIDR(freeOngkirMin)}
-        </Badge>
-       <CartButton
-        totalQty={totalQty}
-        onOpen={() => { console.log('open cart'); setCartOpen(true); }}
-      />
-      </div>
-
-     {/* Mobile controls */}
-<div className="md:hidden flex items-center gap-2">
-  <Sheet open={searchOpen} onOpenChange={setSearchOpen}>
-    <SheetTrigger asChild>
-      <Button variant="secondary" size="icon" className="rounded-2xl">
-        <Search className="w-4 h-4" />
-      </Button>
-    </SheetTrigger>
-
-    {/* ref + stop auto focus biar viewport nggak keangkat */}
-    <SheetContent
-      ref={sheetRef}
-      side="top"
-      onOpenAutoFocus={(e) => e.preventDefault()}
-    >
-      <div className="mt-4 grid gap-3">
-        <Input
-          autoFocus
-          type="search"
-          enterKeyHint="search"
-          placeholder="Cari sayur…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") closeSearchAndScroll("catalog");
-          }}
-        />
-
-        {query && filtered.length > 0 && (
-          <ul className="divide-y">
-            {filtered.slice(0, 8).map((p) => (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  className="w-full text-left py-2"
-                  onClick={() => closeSearchAndScroll(`prod-${p.id}`)}
-                >
-                  {p.name}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {query && filtered.length === 0 && (
-          <div className="text-sm text-slate-500">Tidak ada hasil.</div>
-        )}
-
-        <Button variant="outline" className="rounded-2xl"
-          onClick={() => closeSearchAndScroll("catalog")}>
-          Tutup & lihat hasil di katalog
-        </Button>
-      </div>
-    </SheetContent>
-  </Sheet>
-
-  <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
-</div>
-
-    </div>
-  </div>
 </header>
 
       {/* Hero */}
