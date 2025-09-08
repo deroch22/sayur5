@@ -380,35 +380,33 @@ useEffect(() => {
             </CardHeader>
 
             <CardContent className="p-4">
-  <CardTitle className="text-base font-semibold leading-tight">
-    {p.name || p.id}
-  </CardTitle>
-
-  <div className="text-xs text-slate-500 mt-1 line-clamp-2">
-    {p.desc || "—"}
-  </div>
-
-  <div className="mt-3 flex items-center justify-between">
-    <div className="font-extrabold">{toIDR(priceOf(p, basePrice))}</div>
-    <div className="text-xs text-slate-500">Stok: {Number.isFinite(+p.stock) ? +p.stock : 20}</div>
-  </div>
-
-  <div className="mt-3 flex gap-2">
-    <Button className="rounded-xl flex-1" onClick={() => add(p.id)}>Tambah</Button>
-    {cart[p.id] ? (
-      <div className="flex items-center border rounded-xl overflow-hidden">
-        <Button size="icon" variant="ghost" onClick={() => sub(p.id)}><Minus className="w-4 h-4" /></Button>
-        <div className="px-2 w-8 text-center font-semibold">{cart[p.id]}</div>
-        <Button size="icon" variant="ghost" onClick={() => add(p.id)}><Plus className="w-4 h-4" /></Button>
-      </div>
-    ) : (
-      <Button variant="outline" className="rounded-xl" onClick={() => add(p.id)} size="icon">
-        <Plus className="w-4 h-4" />
-      </Button>
-    )}
-  </div>
-</CardContent>
-
+              <CardTitle className="text-base font-semibold leading-tight">
+                {p.name || p.id}
+              </CardTitle>
+            
+              <div className="text-xs text-slate-500 mt-1 line-clamp-2">
+                {p.desc || "—"}
+              </div>
+            
+              <div className="mt-3 flex items-center justify-between">
+                <div className="font-extrabold">{toIDR(priceOf(p, basePrice))}</div>
+                <div className="text-xs text-slate-500">Stok: {Number.isFinite(+p.stock) ? +p.stock : 20}</div>
+              </div>
+            
+              <div className="mt-3 flex gap-2">
+                <Button className="rounded-xl flex-1" onClick={() => add(p.id)}>Tambah</Button>
+                {cart[p.id] ? (
+                  <div className="flex items-center border rounded-xl overflow-hidden">
+                    <Button size="icon" variant="ghost" onClick={() => sub(p.id)}><Minus className="w-4 h-4" /></Button>
+                    <div className="px-2 w-8 text-center font-semibold">{cart[p.id]}</div>
+                    <Button size="icon" variant="ghost" onClick={() => add(p.id)}><Plus className="w-4 h-4" /></Button>
+                  </div>
+                ) : (
+                  <Button variant="outline" className="rounded-xl" onClick={() => add(p.id)} size="icon">
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         </motion.div>
