@@ -350,64 +350,57 @@ useEffect(() => {
       </section>
 
       {/* Catalog */}
-      <section id="catalog" className="mx-auto max-w-6xl px-4 mt-10 mb-20">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl md:text-2xl font-bold">Katalog Hari Ini</h2>
-            <Truck className="w-4 h-4"/> Estimasi kirim: 1-3 jam setelah pembayaran
-          </div>
-        </div>
-        <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          <AnimatePresence>
-            {filtered.map((p) => (
-               <motion.div key={p.id} id={`prod-${p.id}`} layout initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} exit={{opacity:0}}>
-                <Card className="rounded-2xl overflow-hidden group">
-                  <CardHeader className="p-0">
-                  <div className="h-28 bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center">
-                    <img
-                        src={imgSrc(p.image)}
-                        alt={p.name}
-                        className="h-28 w-28 object-cover rounded-xl"
-                        loading="lazy"
-                        decoding="async"
-                        onError={(e) => {
-                          if (!e.currentTarget.dataset.fallback) {
-                            e.currentTarget.dataset.fallback = "1";
-                            e.currentTarget.src = imgSrc("");
-                          }
-                        }}
-                      />
+<section id="catalog" className="mx-auto max-w-6xl px-4 mt-10 mb-20">
+  {/* Baris judul katalog */}
+  <div className="flex items-center justify-between mb-3">
+    <h2 className="text-xl md:text-2xl font-bold">Katalog Hari Ini</h2>
+    <div className="hidden md:flex items-center gap-2 text-sm text-slate-500">
+      <Truck className="w-4 h-4" /> Estimasi kirim: 1–3 jam setelah pembayaran
+    </div>
+  </div>
 
-                  </div>
-                </CardHeader>
+  {/* Grid produk */}
+  <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <AnimatePresence>
+      {filtered.map((p) => (
+        <motion.div
+          key={p.id}
+          id={`prod-${p.id}`}           // untuk scroll dari search
+          layout
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+        >
+          <Card className="rounded-2xl overflow-hidden group">
+            <CardHeader className="p-0">
+              <div className="h-28 bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center">
+                {/* pakai img yang sudah ada di kode kamu */}
+                <img
+                  src={imgSrc(p.image)}
+                  alt={p.name}
+                  className="h-28 w-28 object-cover rounded-xl"
+                  loading="lazy"
+                  decoding="async"
+                  onError={(e) => {
+                    if (!e.currentTarget.dataset.fallback) {
+                      e.currentTarget.dataset.fallback = "1";
+                      e.currentTarget.src = imgSrc("");
+                    }
+                  }}
+                />
+              </div>
+            </CardHeader>
 
-                  <CardContent className="p-4">
-                    <CardTitle className="text-base font-semibold leading-tight">{p.name}</CardTitle>
-                    <div className="text-xs text-slate-500 mt-1 line-clamp-2">{p.desc}</div>
-                    <div className="mt-3 flex items-center justify-between">
-                      <div className="font-extrabold">{toIDR(priceOf(p, basePrice))}</div>
-                      <div className="text-xs text-slate-500">Stok: {p.stock}</div>
-                    </div>
-                    <div className="mt-3 flex gap-2">
-                      <Button className="rounded-xl flex-1" onClick={()=>add(p.id)}>Tambah</Button>
-                      {cart[p.id] ? (
-                        <div className="flex items-center border rounded-xl overflow-hidden">
-                          <Button size="icon" variant="ghost" onClick={()=>sub(p.id)}><Minus className="w-4 h-4"/></Button>
-                          <div className="px-2 w-8 text-center font-semibold">{cart[p.id]}</div>
-                          <Button size="icon" variant="ghost" onClick={()=>add(p.id)}><Plus className="w-4 h-4"/></Button>
-                        </div>
-                      ) : (
-                        <Button variant="outline" className="rounded-xl" onClick={()=>add(p.id)} size="icon">
-                          <Plus className="w-4 h-4"/>
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-      </section>
+            <CardContent className="p-4">
+              {/* ...konten kartu yang sudah kamu punya (judul, harga, stok, tombol tambah/kurang)... */}
+            </CardContent>
+          </Card>
+        </motion.div>
+      ))}
+    </AnimatePresence>
+  </div>
+</section>
+
 
       {/* Footer */}
       <footer className="border-t bg-white/70 backdrop-blur">
