@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, } from "react";
+import React, { useEffect, useMemo, useState,useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShoppingCart, Leaf, Search, Truck, BadgePercent, Phone, MapPin,
@@ -65,20 +65,29 @@ export default function SayurSerbaLima() {
 const openCheckoutHandler  = () => setOpenCheckout(true);
 const closeCheckoutHandler = () => setOpenCheckout(false);
 // ==== Search helpers ====
-const focusCatalog = (idOrSection = "catalog") => {
-  const el = document.getElementById(idOrSection);
-  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+const searchRef = useRef(null);
+const focusCatalog = (id) => {
+const el = document.getElementById(`prod-${id}`);
+const header = document.querySelector("header");
+const offset = (header?.getBoundingClientRect().height ?? 72) + 8;
+
+  if (el) {
+    const y = el.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+    el.classList.add("ring-2", "ring-emerald-500", "rounded-xl");
+    setTimeout(() => el.classList.remove("ring-2", "ring-emerald-500", "rounded-xl"), 1200);
+  } else {
+    document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
+  }
 };
 
+// submit search: loncat ke hasil pertama
 const handleSearchSubmit = (e) => {
   e.preventDefault();
+  searchRef.current?.blur();       // tutup keyboard
   const first = filtered[0];
-  focusCatalog(first ? `prod-${first.id}` : "catalog");
+  focusCatalog(first?.id);
 };
-
-  useEffect(() => {
-  console.log('cartOpen:', cartOpen);
-}, [cartOpen]);
 
   // Settings (persist)
   const [freeOngkirMin, setFreeOngkirMin] = useState(() => {
@@ -226,19 +235,27 @@ useEffect(() => {
       </div>
 
       {/* Search: full width di semua ukuran layar */}
-      <form onSubmit={handleSearchSubmit} className="flex-1">
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <Input
-            type="search"
-            enterKeyHint="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Cari bayam, kangkung, wortel…"
-            className="pl-9 rounded-2xl w-full"
-          />
-        </div>
-      </form>
+     <form onSubmit={handleSearchSubmit} className="flex-1">
+  <div className="relative">
+    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+    <Input
+      ref={searchRef}                    // << pasang ref
+      type="search"
+      enterKeyHint="search"
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      placeholder="Cari bayam, kangkung, wortel…"
+      className="pl-9 rounded-2xl w-full"
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {         // enter juga jalan
+          e.preventDefault();
+          handleSearchSubmit(e);
+        }
+      }}
+    />
+  </div>
+</form>
+
 
       {/* Keranjang */}
       <div className="shrink-0">
@@ -247,23 +264,28 @@ useEffect(() => {
     </div>
 
     {/* Quick suggestions: hanya muncul saat ada query, dan hanya di mobile */}
-    {query.trim() !== "" && (
-      <ul className="mt-2 md:hidden divide-y rounded-xl border bg-white overflow-hidden">
-        {filtered.length > 0 ? (
-          filtered.slice(0, 6).map((p) => (
-            <li key={p.id}>
-              <button
-                type="button"
-                className="w-full text-left py-2 px-3"
-                onClick={() => focusCatalog(p.id)}
-              >
-                {p.name}
-              </button>
-            </li>
-          ))
-        ) : (
+   {query && (
+      <ul className="mt-2 sm:hidden divide-y rounded-xl border bg-white overflow-hidden">
+        {filtered.slice(0, 6).map((p) => (
+          <li key={p.id}>
+            <button
+              type="button"
+              className="w-full text-left py-2 px-3"
+              onClick={() => {
+                searchRef.current?.blur();   // tutup keyboard dulu
+                focusCatalog(p.id);          // scroll ke kartu katalog
+              }}
+            >
+              {p.name}
+            </button>
+          </li>
+        ))}
+        {filtered.length === 0 && (
           <li className="py-2 px-3 text-sm text-slate-500">Tidak ada hasil.</li>
         )}
+  </ul>
+)}
+
       </ul>
     )}
   </div>
