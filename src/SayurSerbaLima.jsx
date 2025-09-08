@@ -322,7 +322,7 @@ useEffect(() => {
               <div className="absolute -inset-4 bg-emerald-200/40 blur-2xl rounded-[2rem]"></div>
               <div className="relative grid grid-cols-3 gap-3">
                 {products.slice(0,6).map((p)=> (
-                  <motion.div key={p.id} id={`prod-${p.id}`} whileHover={{ scale: 1.04 }} className="p-4 rounded-2xl bg-white shadow-sm border flex flex-col items-center">
+                  <motion.div key={p.id} whileHover={{ scale: 1.04 }} className="p-4 rounded-2xl bg-white shadow-sm border flex flex-col items-center">
                   <img
                       src={imgSrc(p.image)}
                       alt={p.name}
