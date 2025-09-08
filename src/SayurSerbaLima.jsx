@@ -218,11 +218,13 @@ useEffect(() => {
   // UI
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white text-slate-800">
-      <header className="sticky top-0 z-40 backdrop-blur bg-white/70 border-b">
+     <header className="sticky top-0 z-40 backdrop-blur bg-white/70 border-b">
   <div className="mx-auto max-w-6xl px-4 py-3">
+
+    {/* Baris utama: brand • search • cart */}
     <div className="flex items-center gap-3">
-      {/* Brand: sembunyikan di mobile, tampil di ≥ md */}
-      <div className="hidden md:flex items-center gap-2 shrink-0">
+      {/* Brand */}
+      <div className="flex items-center gap-2 shrink-0">
         <div className="p-2 rounded-2xl bg-emerald-100 text-emerald-700">
           <Leaf className="w-5 h-5" />
         </div>
@@ -234,37 +236,36 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Search: full width di semua ukuran layar */}
-     <form onSubmit={handleSearchSubmit} className="flex-1">
-  <div className="relative">
-    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-    <Input
-      ref={searchRef}                    // << pasang ref
-      type="search"
-      enterKeyHint="search"
-      value={query}
-      onChange={(e) => setQuery(e.target.value)}
-      placeholder="Cari bayam, kangkung, wortel…"
-      className="pl-9 rounded-2xl w-full"
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {         // enter juga jalan
-          e.preventDefault();
-          handleSearchSubmit(e);
-        }
-      }}
-    />
-  </div>
-</form>
+      {/* Search */}
+      <form onSubmit={handleSearchSubmit} className="flex-1">
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Input
+            ref={searchRef}
+            type="search"
+            enterKeyHint="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Cari bayam, kangkung, wortel…"
+            className="pl-9 rounded-2xl w-full"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleSearchSubmit(e);
+              }
+            }}
+          />
+        </div>
+      </form>
 
-
-      {/* Keranjang */}
+      {/* Tombol Keranjang */}
       <div className="shrink-0">
         <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
       </div>
     </div>
 
-    {/* Quick suggestions: hanya muncul saat ada query, dan hanya di mobile */}
-   {query && (
+    {/* Quick suggestions (hanya mobile) */}
+    {query && (
       <ul className="mt-2 sm:hidden divide-y rounded-xl border bg-white overflow-hidden">
         {filtered.slice(0, 6).map((p) => (
           <li key={p.id}>
@@ -272,8 +273,8 @@ useEffect(() => {
               type="button"
               className="w-full text-left py-2 px-3"
               onClick={() => {
-                searchRef.current?.blur();   // tutup keyboard dulu
-                focusCatalog(p.id);          // scroll ke kartu katalog
+                searchRef.current?.blur();
+                focusCatalog(p.id);
               }}
             >
               {p.name}
@@ -283,14 +284,11 @@ useEffect(() => {
         {filtered.length === 0 && (
           <li className="py-2 px-3 text-sm text-slate-500">Tidak ada hasil.</li>
         )}
-  </ul>
-)}
-
       </ul>
     )}
+
   </div>
 </header>
-
 
 
       
