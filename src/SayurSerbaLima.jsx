@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShoppingCart, Leaf, Search, Truck, BadgePercent, Phone, MapPin,
@@ -64,20 +64,17 @@ export default function SayurSerbaLima() {
 // handler aman (dibagikan ke child)
 const openCheckoutHandler  = () => setOpenCheckout(true);
 const closeCheckoutHandler = () => setOpenCheckout(false);
-const focusCatalog = (id) => {
-  const el = id ? document.getElementById(`prod-${id}`) : document.getElementById("catalog");
-  el?.scrollIntoView({ behavior: "smooth", block: "start" });
+// ==== Search helpers ====
+const focusCatalog = (idOrSection = "catalog") => {
+  const el = document.getElementById(idOrSection);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
 };
 
 const handleSearchSubmit = (e) => {
   e.preventDefault();
-  const first = filtered[0]?.id;
-  focusCatalog(first); // jika ada hasil, ke produk pertama; kalau tidak ada, tetap ke katalog
+  const first = filtered[0];
+  focusCatalog(first ? `prod-${first.id}` : "catalog");
 };
-
- 
-
-
 
   useEffect(() => {
   console.log('cartOpen:', cartOpen);
@@ -214,17 +211,22 @@ useEffect(() => {
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white text-slate-800">
       <header className="sticky top-0 z-40 backdrop-blur bg-white/70 border-b">
   <div className="mx-auto max-w-6xl px-4 py-3">
+    {/* baris atas: brand • search • keranjang */}
     <div className="flex items-center gap-3">
       {/* Brand */}
       <div className="flex items-center gap-2 shrink-0">
-        <div className="p-2 rounded-2xl bg-emerald-100 text-emerald-700"><Leaf className="w-5 h-5" /></div>
+        <div className="p-2 rounded-2xl bg-emerald-100 text-emerald-700">
+          <Leaf className="w-5 h-5" />
+        </div>
         <div className="leading-tight">
           <div className="font-bold">Sayur5</div>
-          <div className="text-xs text-slate-500 -mt-0.5">Serba {toIDR(basePrice)} — Fresh Setiap Hari</div>
+          <div className="text-xs text-slate-500 -mt-0.5">
+            Serba {toIDR(basePrice)} — Fresh Setiap Hari
+          </div>
         </div>
       </div>
 
-      {/* Search */}
+      {/* Search – dipakai untuk mobile & desktop */}
       <form onSubmit={handleSearchSubmit} className="flex-1">
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -235,6 +237,7 @@ useEffect(() => {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Cari bayam, kangkung, wortel…"
             className="pl-9 rounded-2xl w-full"
+            aria-label="Cari produk"
           />
         </div>
       </form>
@@ -245,6 +248,16 @@ useEffect(() => {
       </div>
     </div>
 
+    {/* Badge info (hanya desktop besar) */}
+    <div className="hidden lg:flex items-center gap-2 mt-2">
+      <Badge variant="secondary" className="rounded-full gap-1">
+        <Truck className="w-3 h-3" /> Antar cepat area kota
+      </Badge>
+      <Badge variant="outline" className="rounded-full gap-1">
+        <BadgePercent className="w-3 h-3" /> Gratis ongkir min {toIDR(freeOngkirMin)}
+      </Badge>
+    </div>
+
     {/* Quick suggestions (opsional, hanya mobile) */}
     {query && (
       <ul className="mt-2 lg:hidden divide-y rounded-xl border bg-white overflow-hidden">
@@ -253,7 +266,7 @@ useEffect(() => {
             <button
               type="button"
               className="w-full text-left py-2 px-3"
-              onClick={() => focusCatalog(p.id)}
+              onClick={() => focusCatalog(`prod-${p.id}`)}
             >
               {p.name}
             </button>
@@ -266,6 +279,7 @@ useEffect(() => {
     )}
   </div>
 </header>
+
 
       
      {/* Topbar */}
@@ -283,8 +297,11 @@ useEffect(() => {
             Serba {toIDR(basePrice)} — Fresh Setiap Hari
           </div>
         </div>
-      </div>
+      </div> 
+    </div>   
+  </div>     
 </header>
+
 
       {/* Hero */}
       <section className="mx-auto max-w-6xl px-4 pt-10">
