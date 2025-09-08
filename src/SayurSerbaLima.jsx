@@ -353,14 +353,16 @@ useEffect(() => {
       <section id="catalog" className="mx-auto max-w-6xl px-4 mt-10 mb-20">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl md:text-2xl font-bold">Katalog Hari Ini</h2>
-          <div className="hidden md:flex items-center gap-2 text-sm text-slate-500">
             <Truck className="w-4 h-4"/> Estimasi kirim: 1-3 jam setelah pembayaran
           </div>
         </div>
         <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           <AnimatePresence>
             {filtered.map((p) => (
-              <motion.div key={p.id} id={`prod-${p.id}`} layout initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} exit={{opacity:0}}>
+               <motion.div key={p.id} id={`prod-${p.id}`}>
+                  {/* card produk */}
+                </motion.div>
+              ))}
                 <Card className="rounded-2xl overflow-hidden group">
                   <CardHeader className="p-0">
                   <div className="h-28 bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center">
