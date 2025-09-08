@@ -482,7 +482,6 @@ useEffect(() => {
     </div>
   </DialogContent>
 </Dialog>
-
     </div>
   );
 }
