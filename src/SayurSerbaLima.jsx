@@ -359,10 +359,7 @@ useEffect(() => {
         <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           <AnimatePresence>
             {filtered.map((p) => (
-               <motion.div key={p.id} id={`prod-${p.id}`}>
-                  {/* card produk */}
-                </motion.div>
-              ))}
+               <motion.div key={p.id} id={`prod-${p.id}`} layout initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} exit={{opacity:0}}>
                 <Card className="rounded-2xl overflow-hidden group">
                   <CardHeader className="p-0">
                   <div className="h-28 bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center">
