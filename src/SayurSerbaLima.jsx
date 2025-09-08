@@ -64,6 +64,15 @@ export default function SayurSerbaLima() {
 // handler aman (dibagikan ke child)
 const openCheckoutHandler  = () => setOpenCheckout(true);
 const closeCheckoutHandler = () => setOpenCheckout(false);
+// --- helper untuk tutup sheet + scroll (TARUH DI SINI)
+const closeSearchAndScroll = (toId = "catalog") => {
+    try { document.activeElement?.blur(); } catch {}
+    setSearchOpen(false);
+    setTimeout(() => {
+      document.getElementById(toId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
+  };
+
 
   useEffect(() => {
   console.log('cartOpen:', cartOpen);
@@ -259,10 +268,7 @@ useEffect(() => {
       onChange={(e) => setQuery(e.target.value)}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
-          setSearchOpen(false);
-          requestAnimationFrame(() => {
-            document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
-          });
+          closeSearchAndScroll("catalog");
         }
       }}
     />
@@ -274,13 +280,8 @@ useEffect(() => {
             <button
               type="button"
               className="w-full text-left py-2"
-              onClick={() => {
-                setSearchOpen(false);
-                requestAnimationFrame(() => {
-                  document.getElementById(`prod-${p.id}`)
-                    ?.scrollIntoView({ behavior: "smooth", block: "center" });
-                });
-              }}
+              onPointerUp={() => closeSearchAndScroll(`prod-${p.id}`)}
+              onClick={() => closeSearchAndScroll(`prod-${p.id}`)}
             >
               {p.name}
             </button>
@@ -289,22 +290,22 @@ useEffect(() => {
       </ul>
     )}
 
+    {query && filtered.length === 0 && (
+      <div className="text-sm text-slate-500">Tidak ada hasil.</div>
+    )}
+
     {/* Tombol tutup & scroll ke katalog */}
-    <Button
+    <button
       type="button"
-      variant="outline"
-      onClick={() => {
-        setSearchOpen(false);
-        requestAnimationFrame(() => {
-          document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
-        });
-      }}
+      className="w-full rounded-2xl border px-4 py-3 text-center text-slate-700"
+      onPointerUp={() => closeSearchAndScroll("catalog")}
+      onClick={() => closeSearchAndScroll("catalog")}
     >
       Tutup & lihat hasil di katalog
-    </Button>
+    </button>
   </div>
 </SheetContent>
-
+    
   </Sheet>
   <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
       </div>
