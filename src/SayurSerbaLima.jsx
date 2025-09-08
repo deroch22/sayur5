@@ -220,24 +220,32 @@ useEffect(() => {
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white text-slate-800">
      <header className="sticky top-0 z-40 backdrop-blur bg-white/70 border-b">
   <div className="mx-auto max-w-6xl px-4 py-3">
+    {/* Mobile: 2 baris • Desktop: 1 baris */}
+    <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3 md:justify-between">
 
-    {/* Baris utama: brand • search • cart */}
-    <div className="flex items-center gap-3">
-      {/* Brand */}
-      <div className="flex items-center gap-2 shrink-0">
-        <div className="p-2 rounded-2xl bg-emerald-100 text-emerald-700">
-          <Leaf className="w-5 h-5" />
-        </div>
-        <div className="leading-tight">
-          <div className="font-bold">Sayur5</div>
-          <div className="text-xs text-slate-500 -mt-0.5">
-            Serba {toIDR(basePrice)} — Fresh Setiap Hari
+      {/* Baris 1 (mobile): Brand + Keranjang; di desktop hanya brand */}
+      <div className="flex items-center justify-between">
+        {/* Brand */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="p-2 rounded-2xl bg-emerald-100 text-emerald-700">
+            <Leaf className="w-5 h-5" />
           </div>
+          <div className="leading-tight">
+            <div className="font-bold">Sayur5</div>
+            <div className="text-xs text-slate-500 -mt-0.5">
+              Serba {toIDR(basePrice)} — Fresh Setiap Hari
+            </div>
+          </div>
+        </div>
+
+        {/* Tombol Keranjang: tampil di mobile, disembunyikan di desktop */}
+        <div className="md:hidden">
+          <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
         </div>
       </div>
 
-      {/* Search */}
-      <form onSubmit={handleSearchSubmit} className="flex-1">
+      {/* Baris 2 (mobile): Search full width; di desktop jadi di tengah dan flex-1 */}
+      <form onSubmit={handleSearchSubmit} className="w-full md:flex-1">
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <Input
@@ -258,15 +266,15 @@ useEffect(() => {
         </div>
       </form>
 
-      {/* Tombol Keranjang */}
-      <div className="shrink-0">
+      {/* Tombol Keranjang versi desktop */}
+      <div className="hidden md:block">
         <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
       </div>
     </div>
 
-    {/* Quick suggestions (hanya mobile) */}
+    {/* Quick suggestions (opsional, hanya mobile) */}
     {query && (
-      <ul className="mt-2 sm:hidden divide-y rounded-xl border bg-white overflow-hidden">
+      <ul className="mt-2 md:hidden divide-y rounded-xl border bg-white overflow-hidden">
         {filtered.slice(0, 6).map((p) => (
           <li key={p.id}>
             <button
@@ -274,7 +282,7 @@ useEffect(() => {
               className="w-full text-left py-2 px-3"
               onClick={() => {
                 searchRef.current?.blur();
-                focusCatalog(p.id);
+                focusCatalog(p.id);   // pastikan helper ini ada
               }}
             >
               {p.name}
@@ -286,10 +294,8 @@ useEffect(() => {
         )}
       </ul>
     )}
-
   </div>
 </header>
-
 
       
      {/* Topbar */}
