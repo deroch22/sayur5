@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShoppingCart, Leaf, Search, Truck, BadgePercent, Phone, MapPin,
@@ -64,14 +64,25 @@ export default function SayurSerbaLima() {
 // handler aman (dibagikan ke child)
 const openCheckoutHandler  = () => setOpenCheckout(true);
 const closeCheckoutHandler = () => setOpenCheckout(false);
-// --- helper untuk tutup sheet + scroll (TARUH DI SINI)
-const closeSearchAndScroll = (toId = "catalog") => {
-    try { document.activeElement?.blur(); } catch {}
-    setSearchOpen(false);
-    setTimeout(() => {
-      document.getElementById(toId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 60);
-  };
+// --- helper untuk tutup sheet + scroll 
+const sheetRef = useRef(null);  
+const closeSearchAndScroll = (anchorId = "catalog") => {
+  setSearchOpen(false);
+
+  const el = sheetRef.current;
+  const go = () =>
+    document.getElementById(anchorId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  if (el) {
+    const handler = () => { go(); el.removeEventListener("transitionend", handler); };
+    el.addEventListener("transitionend", handler, { once: true });
+
+    // fallback kalau transitionend nggak kebaca (mis. reduce-motion)
+    setTimeout(go, 450);
+  } else {
+    setTimeout(go, 450);
+  }
+};
 
 
   useEffect(() => {
@@ -257,50 +268,56 @@ useEffect(() => {
       </Button>
     </SheetTrigger>
 
-<SheetContent side="top" onOpenAutoFocus={(e) => e.preventDefault()}>
-    <div className="mt-4 grid gap-3">
-      <Input
-        autoFocus
-        type="search"
-        enterKeyHint="search"
-        placeholder="Cari sayur…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") closeSearchAndScroll("catalog");
-        }}
-      />
+    {/* ref + stop auto focus biar viewport nggak keangkat */}
+    <SheetContent
+      ref={sheetRef}
+      side="top"
+      onOpenAutoFocus={(e) => e.preventDefault()}
+    >
+      <div className="mt-4 grid gap-3">
+        <Input
+          autoFocus
+          type="search"
+          enterKeyHint="search"
+          placeholder="Cari sayur…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") closeSearchAndScroll("catalog");
+          }}
+        />
 
-      {query && filtered.length > 0 && (
-        <ul className="divide-y">
-          {filtered.slice(0, 8).map((p) => (
-            <li key={p.id}>
-              <button
-                className="w-full text-left py-2"
-                onClick={() => closeSearchAndScroll(`prod-${p.id}`)}
-              >
-                {p.name}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+        {query && filtered.length > 0 && (
+          <ul className="divide-y">
+            {filtered.slice(0, 8).map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  className="w-full text-left py-2"
+                  onClick={() => closeSearchAndScroll(`prod-${p.id}`)}
+                >
+                  {p.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
 
-      {query && filtered.length === 0 && (
-        <div className="text-sm text-slate-500">Tidak ada hasil.</div>
-      )}
+        {query && filtered.length === 0 && (
+          <div className="text-sm text-slate-500">Tidak ada hasil.</div>
+        )}
 
-      <button
-        className="mt-2 rounded-2xl border px-4 py-3 text-center"
-        onClick={() => closeSearchAndScroll("catalog")}
-      >
-        Tutup & lihat hasil di katalog
-      </button>
-    </div>
-  </SheetContent>   
-  </Sheet>
-  <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
+        <Button variant="outline" className="rounded-2xl"
+          onClick={() => closeSearchAndScroll("catalog")}>
+          Tutup & lihat hasil di katalog
+        </Button>
       </div>
+    </SheetContent>
+  </Sheet>
+
+  <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
+</div>
+
     </div>
   </div>
 </header>
