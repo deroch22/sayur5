@@ -248,7 +248,7 @@ useEffect(() => {
       </Button>
     </SheetTrigger>
 
-   <SheetContent side="top">
+<SheetContent side="top">
   <div className="mt-4 grid gap-3">
     <Input
       autoFocus
@@ -260,56 +260,51 @@ useEffect(() => {
       onKeyDown={(e) => {
         if (e.key === "Enter") {
           setSearchOpen(false);
-          setTimeout(() => {
+          requestAnimationFrame(() => {
             document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
-          }, 0);
+          });
         }
       }}
     />
 
-    {/* Quick results */}
     {query && filtered.length > 0 && (
-      <>
-        <ul className="divide-y">
-          {filtered.slice(0, 8).map((p) => (
-            <li key={p.id}>
-              <button
-                className="w-full text-left py-2"
-                onClick={() => {
-                  setSearchOpen(false);
-                  setTimeout(() => {
-                    document
-                      .getElementById(`prod-${p.id}`)
-                      ?.scrollIntoView({ behavior: "smooth", block: "center" });
-                  }, 0);
-                }}
-              >
-                {p.name}
-              </button>
-            </li>
-          ))}
-        </ul>
-
-        <Button
-          variant="outline"
-          className="mt-2 rounded-xl"
-          onClick={() => {
-            setSearchOpen(false);
-            setTimeout(() => {
-              document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
-            }, 0);
-          }}
-        >
-          Tutup & lihat hasil di katalog
-        </Button>
-      </>
+      <ul className="divide-y">
+        {filtered.slice(0, 8).map((p) => (
+          <li key={p.id}>
+            <button
+              type="button"
+              className="w-full text-left py-2"
+              onClick={() => {
+                setSearchOpen(false);
+                requestAnimationFrame(() => {
+                  document.getElementById(`prod-${p.id}`)
+                    ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                });
+              }}
+            >
+              {p.name}
+            </button>
+          </li>
+        ))}
+      </ul>
     )}
 
-    {query && filtered.length === 0 && (
-      <div className="text-sm text-slate-500">Tidak ada hasil.</div>
-    )}
+    {/* Tombol tutup & scroll ke katalog */}
+    <Button
+      type="button"
+      variant="outline"
+      onClick={() => {
+        setSearchOpen(false);
+        requestAnimationFrame(() => {
+          document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
+        });
+      }}
+    >
+      Tutup & lihat hasil di katalog
+    </Button>
   </div>
 </SheetContent>
+
   </Sheet>
   <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
       </div>
