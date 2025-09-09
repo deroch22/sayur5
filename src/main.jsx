@@ -4,6 +4,7 @@ import ReactDOM from "react-dom/client";
 import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import SayurSerbaLima from "./SayurSerbaLima.jsx";
 import "./index.css";
+import 'leaflet/dist/leaflet.css';
 
 const ENABLE_ADMIN = import.meta.env.VITE_ENABLE_ADMIN === "true";
 let LazyAdmin = null;
