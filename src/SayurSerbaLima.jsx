@@ -754,7 +754,7 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
   }, [addrMeta, form.address]);
 
   // Link peta
-  const mapsUrl = useMemo(() => {
+const mapsUrl = useMemo(() => {
   const fmt = (n) => Number(n).toFixed(6); // rapi & stabil
   if (addrMeta?.lat && addrMeta?.lng) {
     const lat = fmt(addrMeta.lat), lng = fmt(addrMeta.lng);
@@ -769,25 +769,6 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
   return q ? `https://maps.google.com/?q=${encodeURIComponent(q)}` : "";
 }, [addrMeta, form.address]);
 
-  // Deteksi Android (untuk geo: scheme)
-  const isAndroid = /Android/i.test(navigator.userAgent || "");
-
-  if (hasCoord) {
-    // PRIORITAS 1 (Android): geo: selalu membuka pin tepat di app Maps
-    if (isAndroid) {
-      // label opsional biar kurir lihat teks
-      const label = encodeURIComponent("Pin Sayur5");
-      return `geo:${lat},${lng}?q=${lat},${lng}(${label})`;
-    }
-    // PRIORITAS 2 (semua platform): link rute ke koordinat (lebih stabil dari 'search')
-    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
-    // Catatan: WA sering mengabaikan 'search', tapi 'dir' konsisten menaruh pin 'Destination'
-  }
-
-  // Tanpa koordinat, jatuh ke pencarian teks
-  const q = addrMeta?.geocode?.display_name || form.address || "";
-  return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : "";
-}, [addrMeta, form.address]);
 
 
   // Items aman
