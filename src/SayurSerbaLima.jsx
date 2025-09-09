@@ -13,12 +13,34 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { imgSrc } from "@/utils/img";
 import { readJSON, writeJSON, readStr, writeStr } from "@/utils/safe";
-import { isInsideAmbarawa, reverseGeocode } from "@/utils/geofence-ambarawa.js";
+import { isInsideAmbarawa, reverseGeocode, AMBARAWA_CENTER, } from "@/utils/geofence-ambarawa.js";
+import MapPicker from "@/components/MapPicker.jsx";
 
 
 
 
 /* ===== Helpers ===== */
+const [mapOpen, setMapOpen] = useState(false);
+
+const applyCoords = async (lat, lng) => {
+  const allowed = isInsideAmbarawa(lat, lng);
+  let addressText = form.address;
+  const meta = { lat, lng, allowed, source: "map-picker" };
+  try {
+    const g = await reverseGeocode(lat, lng);
+    addressText = g.display_name || addressText;
+    meta.geocode = g;
+  } catch {}
+  writeJSON("sayur5.locCache", { ts: Date.now(), text: addressText, meta });
+  setForm((f) => ({ ...f, address: addressText }));
+  setAddrMeta(meta);
+  if (!allowed) setLocError("Maaf, titik ini di luar Kecamatan Ambarawa.");
+};
+
+const openMapPicker = () => { setLocError(""); setMapOpen(true); };
+const onPickFromMap = async (ll) => { setMapOpen(false); await applyCoords(ll.lat, ll.lng); };
+
+
 const to6 = (n) => {
   const x = Number(n);
   return Number.isFinite(x) ? x.toFixed(6) : "";
@@ -889,64 +911,48 @@ const { mapsPinUrl, mapsNavUrl } = useMemo(() => {
       {/* Alamat + tombol share-loc */}
       <label className="grid gap-1 text-sm">
         <div className="flex items-center justify-between">
-          <span>Alamat Lengkap</span>
-          <button
-            type="button"
-            onClick={useMyLocation}
-            disabled={locating}
-            className="inline-flex items-center gap-1 text-emerald-700 hover:underline disabled:opacity-50"
-          >
-            {locating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
-            Gunakan lokasi saya
-          </button>
-        </div>
+    <span>Alamat Lengkap</span>
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={useMyLocation}
+        disabled={locating}
+        className="inline-flex items-center gap-1 text-emerald-700 hover:underline disabled:opacity-50"
+      >
+        {locating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
+        Gunakan lokasi saya
+      </button>
+      <button
+        type="button"
+        onClick={openMapPicker}
+        className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
+      >
+        Pilih lewat peta
+      </button>
+    </div>
+  </div>
 
-        <Textarea
-          value={form.address}
-          onChange={(e) => setForm({ ...form, address: e.target.value })}
-          placeholder="Jalan, RT/RW, Kel/Desa, Kecamatan, Kota"
-          className={`rounded-xl ${form.address && !inServiceArea ? "border-red-500" : ""}`}
-        />
+  {/* textarea alamat tetap */}
+  <Textarea
+    value={form.address}
+    onChange={(e) => setForm({ ...form, address: e.target.value })}
+    placeholder="Jalan, RT/RW, Kel/Desa, Kecamatan, Kota"
+    className={`rounded-xl ${form.address && !inServiceArea ? "border-red-500" : ""}`}
+  />
 
-        <input
-            type="text"
-            inputMode="decimal"
-            placeholder="Koordinat manual (contoh: -7.261261, 110.398899)"
-            className="border rounded-xl h-9 px-3 text-sm mt-1"
-            onBlur={(e) => {
-              const m = String(e.target.value).match(/-?\d+(\.\d+)?/g);
-              if (m && m.length >= 2) {
-                const lat = parseFloat(m[0]), lng = parseFloat(m[1]);
-                if (Number.isFinite(lat) && Number.isFinite(lng)) {
-                  const allowed = isInsideAmbarawa(lat, lng);
-                  const meta = { lat, lng, accuracy: 0, allowed, source: "manual" };
-                  setAddrMeta(meta);
-                  writeJSON("sayur5.locCache", { ts: Date.now(), text: form.address, meta });
-                  if (!allowed) setLocError("Maaf, titik ini di luar Kecamatan Ambarawa.");
-                }
-              }
-            }}
-          />
-
-
-        {addrMeta && (
-          <div className="text-[11px] text-slate-500 mt-1">
-            lat {addrMeta.lat?.toFixed(6)}, lng {addrMeta.lng?.toFixed(6)}
-            {typeof addrMeta.accuracy === "number" && ` • akurasi ±${Math.round(addrMeta.accuracy)} m`}
-            {addrMeta?.branch?.label && ` • ${addrMeta.branch.label}`}
-          </div>
-        )}
-
-        
-    
-
-        {!!locError && <div className="text-xs text-red-600 mt-1">{locError}</div>}
-        {form.address && !inServiceArea && (
-          <div className="text-xs text-red-600 mt-1">
-            Maaf, saat ini kami hanya melayani pengiriman di <b>Kecamatan Ambarawa</b>.
-          </div>
-        )}
-      </label>
+  {/* info akurasi & error (opsional) */}
+  {typeof addrMeta?.accuracy === "number" && (
+    <div className="text-[11px] text-slate-500 mt-1">
+      Akurasi lokasi ≈ {Math.round(addrMeta.accuracy)} m
+    </div>
+  )}
+  {!!locError && <div className="text-xs text-red-600 mt-1">{locError}</div>}
+  {form.address && !inServiceArea && (
+    <div className="text-xs text-red-600 mt-1">
+      Maaf, saat ini kami hanya melayani pengiriman di <b>Kecamatan Ambarawa</b>.
+    </div>
+  )}
+</label>
 
       <div className="grid md:grid-cols-2 gap-3">
         <label className="grid gap-1 text-sm">
@@ -994,21 +1000,38 @@ const { mapsPinUrl, mapsNavUrl } = useMemo(() => {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2 mt-1">
-        <a
-          href={waLink}
-          target="_blank"
-          rel="noreferrer"
-          aria-disabled={!canSubmit}
-          className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${!canSubmit ? "opacity-50 pointer-events-none" : ""}`}
-          onClick={onSubmit}
-        >
-          Pesan via WhatsApp
-        </a>
-      </div>
+      <<div className="flex flex-col sm:flex-row gap-2 mt-1">
+  <a
+    href={waLink}
+    target="_blank"
+    rel="noreferrer"
+    aria-disabled={!canSubmit}
+    className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${
+      !canSubmit ? "opacity-50 pointer-events-none" : ""
+    }`}
+    onClick={onSubmit}
+  >
+    Pesan via WhatsApp
+  </a>
+</div>
 
-      <div className="text-xs text-slate-500">
-        *Tombol WhatsApp akan membuka chat dengan format pesanan otomatis. Layanan saat ini khusus Kecamatan Ambarawa.
+<div className="text-xs text-slate-500">
+  *Tombol WhatsApp akan membuka chat dengan format pesanan otomatis. Layanan saat ini khusus Kecamatan Ambarawa.
+</div>
+
+{/* ⬇️ Render modal MapPicker di luar teks, sebagai sibling */}
+{mapOpen && (
+  <MapPicker
+    initial={
+      addrMeta?.lat && addrMeta?.lng
+        ? { lat: addrMeta.lat, lng: addrMeta.lng }
+        : { lat: AMBARAWA_CENTER.lat, lng: AMBARAWA_CENTER.lng }
+    }
+    onCancel={() => setMapOpen(false)}
+    onConfirm={onPickFromMap}
+  />
+)}
+
       </div>
     </div>
   );
