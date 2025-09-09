@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState,useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShoppingCart, Leaf, Search, Truck, BadgePercent, Phone, MapPin,
-  CreditCard, X, Plus, Minus, ArrowLeft
+  CreditCard, X, Plus, Minus, ArrowLeft, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -626,10 +626,95 @@ function CartDrawer({
 
 
 function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, storePhone }) {
+  // === state lama ===
   const [form, setForm] = useState({ name: "", phone: "", address: "", payment: "transfer", note: "" });
   const validPhone = isValidIndoPhone(form.phone);
-  const canSubmit = form.name && validPhone && form.address && items.length > 0;
 
+  // === state & helper baru (share loc + layanan Ambarawa) ===
+  const [locating, setLocating] = useState(false);
+  const [locError, setLocError] = useState("");
+  const [addrMeta, setAddrMeta] = useState(null); // simpan metadata alamat dari reverse geocode
+
+  // Prefill alamat dari cache (jika masih fresh 15 menit)
+useEffect(() => {
+  const cached = readJSON("sayur5.locCache", null);
+  if (cached && Date.now() - cached.ts < 15 * 60 * 1000) {
+    setForm(f => ({ ...f, address: cached.text }));
+    setAddrMeta(cached.meta ?? null);
+  }
+}, []);
+
+
+  // hanya melayani Kecamatan Ambarawa
+  const SERVICE_RE = /ambarawa/i;
+  const inServiceArea = useMemo(() => {
+    // 1) cek teks alamat yang diketik
+    if (SERVICE_RE.test(form.address || "")) return true;
+    // 2) cek hasil reverse-geocode (jika ada)
+    if (addrMeta && typeof addrMeta === "object") {
+      return Object.values(addrMeta).some((v) => SERVICE_RE.test(String(v || "")));
+    }
+    return false;
+  }, [form.address, addrMeta]);
+
+  const canSubmit = form.name && validPhone && form.address && items.length > 0 && inServiceArea;
+
+  // === share location ===
+  async function useMyLocation() {
+    setLocError("");
+
+    if (!window.isSecureContext || !("geolocation" in navigator)) {
+      setLocError("Perangkat/browser tidak mendukung atau bukan HTTPS.");
+      return;
+    }
+
+    try {
+      setLocating(true);
+
+      // 1) ambil koordinat
+      const pos = await new Promise((res, rej) =>
+        navigator.geolocation.getCurrentPosition(res, rej, {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
+        })
+      );
+      const { latitude, longitude } = pos.coords;
+
+      // 2) reverse geocode (opsional)
+      let display = "";
+      let meta = null;
+      try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`;
+        const resp = await fetch(url, { headers: { Accept: "application/json" } });
+        if (resp.ok) {
+          const data = await resp.json();
+          display = data?.display_name || "";
+          meta = data?.address || null; // simpan komponen alamat
+        }
+      } catch {
+        // abaikan error reverse geocode; tetap pakai koordinat
+      }
+
+      const gmaps = `https://maps.google.com/?q=${latitude},${longitude}`;
+      const text = [
+        display && `Alamat (perkiraan): ${display}`,
+        `Koordinat: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+        `Link Maps: ${gmaps}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      setAddrMeta(meta);
+      setForm((f) => ({ ...f, address: text }));
+    } catch (e) {
+      setLocError(e?.message || "Gagal mengambil lokasi. Coba aktifkan GPS dan izin lokasi.");
+    } finally {
+      setLocating(false);
+    }
+  }
+
+  // === tetap: teks pesanan & link WA ===
   const orderText = useMemo(() => {
     const lines = [
       `Pesanan Sayur5`,
@@ -649,12 +734,18 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
 
   const waLink = `https://wa.me/${toWA(storePhone)}?text=${orderText}`;
 
+  // === UI (dipertahankan, hanya tambah tombol lokasi & validasi area) ===
   return (
     <div className="grid gap-3">
       <div className="grid md:grid-cols-2 gap-3">
         <label className="grid gap-1 text-sm">
           <span>Nama Penerima</span>
-          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nama lengkap" className="rounded-xl" />
+          <Input
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="Nama lengkap"
+            className="rounded-xl"
+          />
         </label>
         <label className="grid gap-1 text-sm">
           <span>No. HP</span>
@@ -664,30 +755,62 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
             placeholder="08xxxxxxxxxx"
             className={`rounded-xl ${form.phone && !validPhone ? "border-red-500" : ""}`}
           />
-          {form.phone && !validPhone && <div className="text-xs text-red-600 mt-1">Nomor HP tidak valid. Contoh: 0812xxxxxxx</div>}
+          {form.phone && !validPhone && (
+            <div className="text-xs text-red-600 mt-1">Nomor HP tidak valid. Contoh: 0812xxxxxxx</div>
+          )}
         </label>
       </div>
 
+      {/* Alamat + tombol share-loc */}
       <label className="grid gap-1 text-sm">
-        <span>Alamat Lengkap</span>
-        <Textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })}
-          placeholder="Jalan, RT/RW, Kel/Desa, Kecamatan, Kota" className="rounded-xl" />
+        <div className="flex items-center justify-between">
+          <span>Alamat Lengkap</span>
+          <button
+            type="button"
+            onClick={useMyLocation}
+            disabled={locating}
+            className="inline-flex items-center gap-1 text-emerald-700 hover:underline disabled:opacity-50"
+          >
+            {locating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
+            Gunakan lokasi saya
+          </button>
+        </div>
+
+        <Textarea
+          value={form.address}
+          onChange={(e) => setForm({ ...form, address: e.target.value })}
+          placeholder="Jalan, RT/RW, Kel/Desa, Kecamatan, Kota"
+          className={`rounded-xl ${form.address && !inServiceArea ? "border-red-500" : ""}`}
+        />
+
+        {!!locError && <div className="text-xs text-red-600 mt-1">{locError}</div>}
+        {form.address && !inServiceArea && (
+          <div className="text-xs text-red-600 mt-1">
+            Maaf, saat ini kami hanya melayani pengiriman di <b>Kecamatan Ambarawa</b>.
+            Tuliskan “Ambarawa” pada alamat atau gunakan tombol lokasi.
+          </div>
+        )}
       </label>
 
       <div className="grid md:grid-cols-2 gap-3">
         <label className="grid gap-1 text-sm">
           <span>Metode Pembayaran</span>
-          <select className="border rounded-xl h-10 px-3" value={form.payment}
-            onChange={(e) => setForm({ ...form, payment: e.target.value })}>
-            <option value="transfer">Transfer Bank</option>
-            <option value="ewallet">E-Wallet (Dana/OVO/GoPay)</option>
+          <select
+            className="border rounded-xl h-10 px-3"
+            value={form.payment}
+            onChange={(e) => setForm({ ...form, payment: e.target.value })}
+          >
             <option value="cod">COD (Cash on Delivery)</option>
           </select>
         </label>
         <label className="grid gap-1 text-sm">
           <span>Catatan</span>
-          <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })}
-            placeholder="Contoh: tanpa cabe, kirim siang" className="rounded-xl" />
+          <Input
+            value={form.note}
+            onChange={(e) => setForm({ ...form, note: e.target.value })}
+            placeholder="Contoh: tanpa cabe, kirim siang"
+            className="rounded-xl"
+          />
         </label>
       </div>
 
@@ -695,22 +818,46 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
         <div className="font-semibold mb-2">Ringkasan</div>
         <div className="space-y-1 text-sm">
           {items.map((it) => (
-            <div key={it.id} className="flex justify-between"><span>{it.name} x{it.qty}</span><span>{toIDR(it.price * it.qty)}</span></div>
+            <div key={it.id} className="flex justify-between">
+              <span>
+                {it.name} x{it.qty}
+              </span>
+              <span>{toIDR(it.price * it.qty)}</span>
+            </div>
           ))}
-          <div className="flex justify-between mt-2"><span>Subtotal</span><span>{toIDR(subtotal)}</span></div>
-          <div className="flex justify-between"><span>Ongkir</span><span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span></div>
-          <div className="flex justify-between font-bold text-base"><span>Total</span><span>{toIDR(grandTotal)}</span></div>
+          <div className="flex justify-between mt-2">
+            <span>Subtotal</span>
+            <span>{toIDR(subtotal)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Ongkir</span>
+            <span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span>
+          </div>
+          <div className="flex justify-between font-bold text-base">
+            <span>Total</span>
+            <span>{toIDR(grandTotal)}</span>
+          </div>
         </div>
       </div>
 
+      {/* Tombol WA tetap, tapi ikut validasi area */}
       <div className="flex flex-col sm:flex-row gap-2 mt-1">
-    <a href={waLink} target="_blank" rel="noreferrer"
-       className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${!canSubmit ? "opacity-50 pointer-events-none" : ""}`}>
-      Pesan via WhatsApp
-    </a>
-  </div>
+        <a
+          href={waLink}
+          target="_blank"
+          rel="noreferrer"
+          aria-disabled={!canSubmit}
+          className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${
+            !canSubmit ? "opacity-50 pointer-events-none" : ""
+          }`}
+        >
+          Pesan via WhatsApp
+        </a>
+      </div>
 
-      <div className="text-xs text-slate-500">*Tombol WhatsApp akan membuka chat dengan format pesanan otomatis.</div>
+      <div className="text-xs text-slate-500">
+        *Tombol WhatsApp akan membuka chat dengan format pesanan otomatis. Layanan saat ini khusus Kecamatan Ambarawa.
+      </div>
     </div>
   );
 }
