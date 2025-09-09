@@ -20,26 +20,6 @@ import MapPicker from "@/components/MapPicker.jsx";
 
 
 /* ===== Helpers ===== */
-const [mapOpen, setMapOpen] = useState(false);
-
-const applyCoords = async (lat, lng) => {
-  const allowed = isInsideAmbarawa(lat, lng);
-  let addressText = form.address;
-  const meta = { lat, lng, allowed, source: "map-picker" };
-  try {
-    const g = await reverseGeocode(lat, lng);
-    addressText = g.display_name || addressText;
-    meta.geocode = g;
-  } catch {}
-  writeJSON("sayur5.locCache", { ts: Date.now(), text: addressText, meta });
-  setForm((f) => ({ ...f, address: addressText }));
-  setAddrMeta(meta);
-  if (!allowed) setLocError("Maaf, titik ini di luar Kecamatan Ambarawa.");
-};
-
-const openMapPicker = () => { setLocError(""); setMapOpen(true); };
-const onPickFromMap = async (ll) => { setMapOpen(false); await applyCoords(ll.lat, ll.lng); };
-
 
 const to6 = (n) => {
   const x = Number(n);
@@ -761,6 +741,26 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
   const [locating, setLocating] = useState(false);
   const [locError, setLocError] = useState("");
   const [addrMeta, setAddrMeta] = useState(null); // { lat, lng, accuracy, allowed, branch?, geocode? }
+  const [mapOpen, setMapOpen] = useState(false);
+
+const applyCoords = async (lat, lng) => {
+  const allowed = isInsideAmbarawa(lat, lng);
+  let addressText = form.address;
+  const meta = { lat, lng, allowed, source: "map-picker" };
+  try {
+    const g = await reverseGeocode(lat, lng);
+    addressText = g.display_name || addressText;
+    meta.geocode = g;
+  } catch {}
+  writeJSON("sayur5.locCache", { ts: Date.now(), text: addressText, meta });
+  setForm((f) => ({ ...f, address: addressText }));
+  setAddrMeta(meta);
+  if (!allowed) setLocError("Maaf, titik ini di luar Kecamatan Ambarawa.");
+};
+
+const openMapPicker = () => { setLocError(""); setMapOpen(true); };
+const onPickFromMap = async (ll) => { setMapOpen(false); await applyCoords(ll.lat, ll.lng); };
+
 
   // restore cache lokasi 15 menit terakhir
   useEffect(() => {
