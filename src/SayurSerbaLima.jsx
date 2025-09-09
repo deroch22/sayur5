@@ -19,6 +19,11 @@ import { isInsideAmbarawa, reverseGeocode } from "@/utils/geofence-ambarawa.js";
 
 
 /* ===== Helpers ===== */
+const to6 = (n) => {
+  const x = Number(n);
+  return Number.isFinite(x) ? x.toFixed(6) : "";
+};
+
 const DEFAULT_BASE_PRICE = 5000;
 
 const toIDR = (n) =>
