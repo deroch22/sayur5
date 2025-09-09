@@ -755,15 +755,9 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
 
   // Link peta
 const mapsUrl = useMemo(() => {
-  const fmt = (n) => Number(n).toFixed(6); // rapi & stabil
-  if (addrMeta?.lat && addrMeta?.lng) {
-    const lat = fmt(addrMeta.lat), lng = fmt(addrMeta.lng);
-    // 100% clickable di WA, dan pin tepat di titiknya:
-    return `https://maps.google.com/?q=${lat},${lng}`;
-    // alternatif setara:
-    // return `https://www.google.com/maps/search/?api=1&query=loc:${lat},${lng}`;
-    // atau untuk buka app (Android) biasanya juga oke:
-    // return `https://maps.app.goo.gl/?q=${lat},${lng}`;
+if (addrMeta?.lat && addrMeta?.lng) {
+    // format paling “klik-able” di WA
+    return `https://maps.google.com/?q=${fmt(addrMeta.lat)},${fmt(addrMeta.lng)}`;
   }
   const q = addrMeta?.geocode?.display_name || form.address || "";
   return q ? `https://maps.google.com/?q=${encodeURIComponent(q)}` : "";
@@ -785,7 +779,7 @@ const mapsUrl = useMemo(() => {
     setLocError("");
     setLocating(true);
     try {
-      const posRaw = await getPrecisePosition({ timeoutMs: 20000, targetAcc: 50 });
+      const posRaw = await getPrecisePosition({ timeoutMs: 20000, targetAcc: 25 });
       const pos = {
         lat: posRaw.coords.latitude,
         lng: posRaw.coords.longitude,
@@ -838,7 +832,7 @@ const mapsUrl = useMemo(() => {
     addrMeta?.lat && addrMeta?.lng
       ? `Koordinat: ${addrMeta.lat.toFixed(6)}, ${addrMeta.lng.toFixed(6)}`
       : "",
-    mapsUrl ? `Pin Lokasi: ${mapsUrl}` : "",
+    mapsUrl ? `Pin Lokasi (klik): ${mapsUrl}` : "",
     `Metode Bayar: ${form.payment.toUpperCase()}`,
     `Rincian:`,
     ...safeItems.map(
