@@ -754,14 +754,18 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
   }, [addrMeta, form.address]);
 
   // Link peta
+// URL Google Maps dari lat,lng (hasil Share Lokasi) atau fallback alamat
 const mapsUrl = useMemo(() => {
-if (addrMeta?.lat && addrMeta?.lng) {
-    // format paling “klik-able” di WA
-    return `https://maps.google.com/?q=${fmt(addrMeta.lat)},${fmt(addrMeta.lng)}`;
+  if (addrMeta?.lat && addrMeta?.lng) {
+    const lat = Number(addrMeta.lat).toFixed(6);
+    const lng = Number(addrMeta.lng).toFixed(6);
+    // format yang paling “klik-able” di WhatsApp
+    return `https://maps.google.com/?q=${lat},${lng}`;
   }
   const q = addrMeta?.geocode?.display_name || form.address || "";
   return q ? `https://maps.google.com/?q=${encodeURIComponent(q)}` : "";
 }, [addrMeta, form.address]);
+
 
 
 
