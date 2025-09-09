@@ -910,21 +910,13 @@ const { mapsPinUrl, mapsNavUrl } = useMemo(() => {
 
       {/* Alamat + tombol share-loc */}
       <label className="grid gap-1 text-sm">
-        <div className="flex items-center justify-between">
+  <div className="flex items-center justify-between">
     <span>Alamat Lengkap</span>
     <div className="flex items-center gap-2">
+      {/* HAPUS tombol 'Gunakan lokasi saya' */}
       <button
         type="button"
-        onClick={useMyLocation}
-        disabled={locating}
-        className="inline-flex items-center gap-1 text-emerald-700 hover:underline disabled:opacity-50"
-      >
-        {locating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
-        Gunakan lokasi saya
-      </button>
-      <button
-        type="button"
-        onClick={openMapPicker}
+        onClick={() => setMapOpen(true)}
         className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
       >
         Pilih lewat peta
@@ -932,27 +924,15 @@ const { mapsPinUrl, mapsNavUrl } = useMemo(() => {
     </div>
   </div>
 
-  {/* textarea alamat tetap */}
   <Textarea
     value={form.address}
     onChange={(e) => setForm({ ...form, address: e.target.value })}
     placeholder="Jalan, RT/RW, Kel/Desa, Kecamatan, Kota"
     className={`rounded-xl ${form.address && !inServiceArea ? "border-red-500" : ""}`}
   />
-
-  {/* info akurasi & error (opsional) */}
-  {typeof addrMeta?.accuracy === "number" && (
-    <div className="text-[11px] text-slate-500 mt-1">
-      Akurasi lokasi ≈ {Math.round(addrMeta.accuracy)} m
-    </div>
-  )}
-  {!!locError && <div className="text-xs text-red-600 mt-1">{locError}</div>}
-  {form.address && !inServiceArea && (
-    <div className="text-xs text-red-600 mt-1">
-      Maaf, saat ini kami hanya melayani pengiriman di <b>Kecamatan Ambarawa</b>.
-    </div>
-  )}
+  {/* ... dst tetap */}
 </label>
+
 
       <div className="grid md:grid-cols-2 gap-3">
         <label className="grid gap-1 text-sm">
