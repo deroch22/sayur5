@@ -787,7 +787,6 @@ useEffect(() => {
         {form.address && !inServiceArea && (
           <div className="text-xs text-red-600 mt-1">
             Maaf, saat ini kami hanya melayani pengiriman di <b>Kecamatan Ambarawa</b>.
-            Tuliskan “Ambarawa” pada alamat atau gunakan tombol lokasi.
           </div>
         )}
       </label>
