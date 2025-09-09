@@ -1032,9 +1032,5 @@ const { mapsPinUrl, mapsNavUrl } = useMemo(() => {
   />
 )}
 
-      </div>
-    </div>
-  );
-}
-
+    
 
