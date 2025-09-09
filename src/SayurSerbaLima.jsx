@@ -13,6 +13,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { imgSrc } from "@/utils/img";
 import { readJSON, writeJSON, readStr, writeStr } from "@/utils/safe";
+import {
+  isInsideAmbarawa, reverseGeocode, readJSON, writeJSON
+} from "./geofence-ambarawa";
 
 
 
@@ -624,104 +627,108 @@ function CartDrawer({
 }
 
 
-
 function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, storePhone }) {
   // === state lama ===
-  const [form, setForm] = useState({ name: "", phone: "", address: "", payment: "transfer", note: "" });
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    address: "",
+    payment: "cod",     // kamu tadinya "transfer", tapi di UI pilihan yg aktif "cod"
+    note: "",
+  });
   const validPhone = isValidIndoPhone(form.phone);
 
-  // === state & helper baru (share loc + layanan Ambarawa) ===
+  // === state baru (share loc + batas layanan) ===
   const [locating, setLocating] = useState(false);
   const [locError, setLocError] = useState("");
-  const [addrMeta, setAddrMeta] = useState(null); // simpan metadata alamat dari reverse geocode
+  const [addrMeta, setAddrMeta] = useState(null); // { lat, lng, allowed, geocode?, ... }
 
-  // Prefill alamat dari cache (jika masih fresh 15 menit)
-useEffect(() => {
-  const cached = readJSON("sayur5.locCache", null);
-  if (cached && Date.now() - cached.ts < 15 * 60 * 1000) {
-    setForm(f => ({ ...f, address: cached.text }));
-    setAddrMeta(cached.meta ?? null);
-  }
-}, []);
+  // Prefill alamat dari cache (≤ 15 menit)
+  useEffect(() => {
+    const cached = readJSON("sayur5.locCache", null);
+    if (cached && Date.now() - cached.ts < 15 * 60 * 1000) {
+      setForm(f => ({ ...f, address: cached.text || "" }));
+      setAddrMeta(cached.meta ?? null);
+    }
+  }, []);
 
-
-  // hanya melayani Kecamatan Ambarawa
+  // Fallback regex jika user ketik alamat manual
   const SERVICE_RE = /ambarawa/i;
+
   const inServiceArea = useMemo(() => {
-    // 1) cek teks alamat yang diketik
+    // Prioritas 1: hasil geofence (pasti paling akurat)
+    if (addrMeta?.allowed === true) return true;
+
+    // Prioritas 2: cek teks alamat yang diketik
     if (SERVICE_RE.test(form.address || "")) return true;
-    // 2) cek hasil reverse-geocode (jika ada)
-    if (addrMeta && typeof addrMeta === "object") {
-      return Object.values(addrMeta).some((v) => SERVICE_RE.test(String(v || "")));
+
+    // Prioritas 3: cek hasil reverse geocode (jika ada)
+    const g = addrMeta?.geocode;
+    if (g) {
+      if (SERVICE_RE.test(g.display_name || "")) return true;
+      const parts = g.address ? Object.values(g.address) : [];
+      if (parts.some(v => SERVICE_RE.test(String(v || "")))) return true;
     }
     return false;
   }, [form.address, addrMeta]);
 
-  const canSubmit = form.name && validPhone && form.address && items.length > 0 && inServiceArea;
+  const canSubmit = Boolean(
+    form.name &&
+    validPhone &&
+    form.address &&
+    items.length > 0 &&
+    inServiceArea
+  );
 
-  // === share location ===
+  // === Share Location ===
   async function useMyLocation() {
     setLocError("");
-
-    if (!window.isSecureContext || !("geolocation" in navigator)) {
-      setLocError("Perangkat/browser tidak mendukung atau bukan HTTPS.");
-      return;
-    }
-
+    setLocating(true);
     try {
-      setLocating(true);
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+          reject,
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      });
 
-      // 1) ambil koordinat
-      const pos = await new Promise((res, rej) =>
-        navigator.geolocation.getCurrentPosition(res, rej, {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 0,
-        })
-      );
-      const { latitude, longitude } = pos.coords;
+      const allowed = isInsideAmbarawa(pos.lat, pos.lng);
+      let addressText = "";
+      const meta = { ...pos, allowed, source: "geolocation" };
 
-      // 2) reverse geocode (opsional)
-      let display = "";
-      let meta = null;
       try {
-        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`;
-        const resp = await fetch(url, { headers: { Accept: "application/json" } });
-        if (resp.ok) {
-          const data = await resp.json();
-          display = data?.display_name || "";
-          meta = data?.address || null; // simpan komponen alamat
-        }
+        const g = await reverseGeocode(pos.lat, pos.lng);
+        addressText = g.display_name || "";
+        meta.geocode = g;
       } catch {
-        // abaikan error reverse geocode; tetap pakai koordinat
+        // optional: biarkan kosong jika gagal reverse geocode
       }
 
-      const gmaps = `https://maps.google.com/?q=${latitude},${longitude}`;
-      const text = [
-        display && `Alamat (perkiraan): ${display}`,
-        `Koordinat: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
-        `Link Maps: ${gmaps}`,
-      ]
-        .filter(Boolean)
-        .join("\n");
+      // cache 15 menit
+      writeJSON("sayur5.locCache", { ts: Date.now(), text: addressText, meta });
 
+      setForm(f => ({ ...f, address: addressText || f.address }));
       setAddrMeta(meta);
-      setForm((f) => ({ ...f, address: text }));
+
+      if (!allowed) {
+        setLocError("Maaf, alamat di luar Kecamatan Ambarawa. Pesanan tidak bisa dikonfirmasi.");
+      }
     } catch (e) {
-      setLocError(e?.message || "Gagal mengambil lokasi. Coba aktifkan GPS dan izin lokasi.");
+      setLocError("Gagal ambil lokasi. Aktifkan GPS/izin lokasi lalu coba lagi.");
     } finally {
       setLocating(false);
     }
   }
 
-  // === tetap: teks pesanan & link WA ===
+  // === teks pesanan & link WA ===
   const orderText = useMemo(() => {
     const lines = [
       `Pesanan Sayur5`,
       `Nama: ${form.name}`,
       `Telp: ${form.phone}`,
       `Alamat: ${form.address}`,
-      `Metode Bayar: ${form.payment}`,
+      `Metode Bayar: ${form.payment.toUpperCase()}`,
       `Rincian:`,
       ...items.map((it) => `- ${it.name} x${it.qty} @${toIDR(it.price)} = ${toIDR(it.price * it.qty)}`),
       `Subtotal: ${toIDR(subtotal)}`,
@@ -729,12 +736,12 @@ useEffect(() => {
       `Total: ${toIDR(grandTotal)}`,
       form.note ? `Catatan: ${form.note}` : "",
     ].filter(Boolean);
-    return lines.join("%0A");
+    // Encode aman untuk WhatsApp
+    return encodeURIComponent(lines.join("\n"));
   }, [form, items, subtotal, shippingFee, grandTotal]);
 
   const waLink = `https://wa.me/${toWA(storePhone)}?text=${orderText}`;
 
-  // === UI (dipertahankan, hanya tambah tombol lokasi & validasi area) ===
   return (
     <div className="grid gap-3">
       <div className="grid md:grid-cols-2 gap-3">
@@ -800,6 +807,7 @@ useEffect(() => {
             onChange={(e) => setForm({ ...form, payment: e.target.value })}
           >
             <option value="cod">COD (Cash on Delivery)</option>
+            {/* tambahkan opsi lain kalau perlu */}
           </select>
         </label>
         <label className="grid gap-1 text-sm">
@@ -839,16 +847,15 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Tombol WA tetap, tapi ikut validasi area */}
+      {/* Tombol WA mengikuti validasi layanan */}
       <div className="flex flex-col sm:flex-row gap-2 mt-1">
         <a
           href={waLink}
           target="_blank"
           rel="noreferrer"
           aria-disabled={!canSubmit}
-          className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${
-            !canSubmit ? "opacity-50 pointer-events-none" : ""
-          }`}
+          className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${!canSubmit ? "opacity-50 pointer-events-none" : ""}`}
+          onClick={onSubmit}
         >
           Pesan via WhatsApp
         </a>
@@ -860,3 +867,5 @@ useEffect(() => {
     </div>
   );
 }
+
+export default CheckoutForm;
