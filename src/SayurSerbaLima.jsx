@@ -626,73 +626,74 @@ function CartDrawer({
 }
 
 
-function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, storePhone }) {
-  // === state lama ===
-  const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    address: "",
-    payment: "cod",     // kamu tadinya "transfer", tapi di UI pilihan yg aktif "cod"
-    note: "",
-  });
-  const validPhone = isValidIndoPhone(form.phone);
+// === Helpers (boleh taruh di utils) =========================================
 
-  // === state baru (share loc + batas layanan) ===
-  const [locating, setLocating] = useState(false);
-  const [locError, setLocError] = useState("");
-  const [addrMeta, setAddrMeta] = useState(null); // { lat, lng, allowed, geocode?, ... }
+// Konfigurasi area layanan: tinggal tambah cabang baru di sini
+const BRANCHES = [
+  { id: "ambarawa", label: "Kecamatan Ambarawa", lat: -7.267, lng: 110.400, radiusKm: 6.5 },
+  // contoh cabang lain:
+  // { id: "banyubiru", label: "Kecamatan Banyubiru", lat: -7.283, lng: 110.433, radiusKm: 6 }
+];
 
-  const mapsUrl = useMemo(() => {
-  const fmt = (n) => Number(n).toFixed(6); // 6 desimal cukup (~10 cm)
-  if (addrMeta?.lat && addrMeta?.lng) {
-    const { lat, lng } = addrMeta;
-    // 'loc:lat,lng' memaksa Google Maps menganggap ini titik koordinat, bukan teks
-    return `https://www.google.com/maps/search/?api=1&query=loc:${fmt(lat)},${fmt(lng)}`;
-    // Alternatif yang juga oke:
-    // return `https://maps.google.com/?q=${fmt(lat)},${fmt(lng)}`;
+function toRad(d) { return (d * Math.PI) / 180; }
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+function whichBranch(lat, lng) {
+  for (const b of BRANCHES) if (haversineKm(lat, lng, b.lat, b.lng) <= b.radiusKm) return b;
+  return null;
+}
+function isInsideBranches(lat, lng) {
+  const b = whichBranch(lat, lng);
+  return { allowed: !!b, branch: b };
+}
+
+async function reverseGeocode(lat, lng) {
+  // Nominatim OSM (ringan, tanpa API key). Jangan spam (rate limit).
+  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1`;
+  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!res.ok) throw new Error("reverse-geocode-failed");
+  return await res.json();
+}
+
+// localStorage aman
+function readJSON(key, fallback = null) {
+  try {
+    const s = localStorage.getItem(key);
+    return s ? JSON.parse(s) : fallback;
+  } catch {
+    return fallback;
   }
-  const q = addrMeta?.geocode?.display_name || form.address || "";
-  return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : "";
-}, [addrMeta, form.address]);
+}
+function writeJSON(key, val) {
+  try {
+    localStorage.setItem(key, JSON.stringify(val));
+  } catch { /* quota penuh? biarkan diam */ }
+}
 
-  const safeItems = Array.isArray(items) ? items : [];
-  const canSubmit = Boolean(
-    form.name && validPhone && form.address && safeItems.length > 0 && inServiceArea
-  );
-  const canConfirm = canSubmit;
-
-
-  // util kecil di dalam CheckoutForm.jsx
-function getPrecisePosition({ timeoutMs = 8000, targetAcc = 40 } = {}) {
+// Dapatkan posisi dengan akurasi baik, ada fallback
+function getPrecisePosition({ timeoutMs = 20000, targetAcc = 50 } = {}) {
   return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("no-geolocation"));
+      return;
+    }
     let done = false;
     const options = { enableHighAccuracy: true, maximumAge: 0, timeout: timeoutMs };
 
-    // fallback jika watchPosition tidak tersedia
-    if (!navigator.geolocation?.watchPosition) {
-      navigator.geolocation.getCurrentPosition(resolve, reject, options);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      if (done) return;
-      done = true;
-      navigator.geolocation.getCurrentPosition(
-        (pos) => resolve(pos),
-        (err) => reject(err),
-        options
-      );
-      navigator.geolocation.clearWatch(watchId);
-    }, timeoutMs);
-
+    // gunakan watchPosition agar bisa “menunggu akurasi bagus”
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        // ambil begitu akurasinya sudah cukup baik
         if (done) return;
-        const acc = pos.coords.accuracy || 9999;
+        const acc = pos.coords.accuracy ?? 9999;
         if (acc <= targetAcc) {
           done = true;
-          clearTimeout(timer);
           navigator.geolocation.clearWatch(watchId);
           resolve(pos);
         }
@@ -700,59 +701,120 @@ function getPrecisePosition({ timeoutMs = 8000, targetAcc = 40 } = {}) {
       (err) => {
         if (done) return;
         done = true;
-        clearTimeout(timer);
         navigator.geolocation.clearWatch(watchId);
         reject(err);
       },
       options
     );
+
+    // fallback: kalau sampai timeout belum “cukup akurat”, ambil sekali
+    setTimeout(() => {
+      if (done) return;
+      done = true;
+      navigator.geolocation.clearWatch(watchId);
+      navigator.geolocation.getCurrentPosition(resolve, reject, options);
+    }, timeoutMs);
   });
 }
+
+// ============================================================================
+
+function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, storePhone }) {
+  // === state lama ===
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    address: "",
+    payment: "cod",
+    note: "",
+  });
+  const validPhone = isValidIndoPhone(form.phone);
+
+  // === state baru (share loc + batas layanan) ===
+  const [locating, setLocating] = useState(false);
+  const [locError, setLocError] = useState("");
+  const [addrMeta, setAddrMeta] = useState(null); // { lat, lng, accuracy, allowed, branch?, geocode? }
+
+  // restore cache lokasi 15 menit terakhir
+  useEffect(() => {
+    const cached = readJSON("sayur5.locCache", null);
+    if (cached && Date.now() - cached.ts < 15 * 60 * 1000) {
+      setForm((f) => ({ ...f, address: cached.text || f.address }));
+      setAddrMeta(cached.meta || null);
+    }
+  }, []);
+
+  // hitung status area layanan
+  const inServiceArea = useMemo(() => {
+    if (addrMeta?.allowed === true) return true;
+    if (addrMeta?.allowed === false) return false;
+    // fallback berbasis teks kalau user ketik manual
+    const s = (form.address || "").toLowerCase();
+    return /ambarawa/.test(s); // sederhana: cukup mengandung kata "Ambarawa"
+  }, [addrMeta, form.address]);
+
+  // Link peta
+  const mapsUrl = useMemo(() => {
+    const fmt = (n) => Number(n).toFixed(6);
+    if (addrMeta?.lat && addrMeta?.lng) {
+      const { lat, lng } = addrMeta;
+      return `https://www.google.com/maps/search/?api=1&query=loc:${fmt(lat)},${fmt(lng)}`;
+    }
+    const q = addrMeta?.geocode?.display_name || form.address || "";
+    return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : "";
+  }, [addrMeta, form.address]);
+
+  // Items aman
+  const safeItems = Array.isArray(items) ? items : [];
+
+  // tombol aktif jika valid semua + dalam area
+  const canSubmit = Boolean(
+    form.name && validPhone && form.address && safeItems.length > 0 && inServiceArea
+  );
+  const canConfirm = canSubmit; // kompat lama
 
   // === Share Location ===
   async function useMyLocation() {
     setLocError("");
     setLocating(true);
     try {
-       const posRaw = await getPrecisePosition({ timeoutMs: 8000, targetAcc: 40 });
-       const pos = {
-         lat: posRaw.coords.latitude,
-         lng: posRaw.coords.longitude,
-         accuracy: posRaw.coords.accuracy,
-         heading: posRaw.coords.heading,
-         speed: posRaw.coords.speed,
-       }; 
-      new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-          reject,
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
-      });
+      const posRaw = await getPrecisePosition({ timeoutMs: 20000, targetAcc: 50 });
+      const pos = {
+        lat: posRaw.coords.latitude,
+        lng: posRaw.coords.longitude,
+        accuracy: posRaw.coords.accuracy,
+        heading: posRaw.coords.heading,
+        speed: posRaw.coords.speed,
+      };
 
-      const allowed = isInsideAmbarawa(pos.lat, pos.lng);
+      const { allowed, branch } = isInsideBranches(pos.lat, pos.lng);
       let addressText = "";
-      const meta = { ...pos, allowed, source: "geolocation" };
+      const meta = { ...pos, allowed, branch, source: "geolocation" };
 
+      // Reverse geocode opsional
       try {
         const g = await reverseGeocode(pos.lat, pos.lng);
         addressText = g.display_name || "";
         meta.geocode = g;
       } catch {
-        // optional: biarkan kosong jika gagal reverse geocode
+        /* boleh diabaikan */
       }
 
       // cache 15 menit
       writeJSON("sayur5.locCache", { ts: Date.now(), text: addressText, meta });
 
-      setForm(f => ({ ...f, address: addressText || f.address }));
+      setForm((f) => ({ ...f, address: addressText || f.address }));
       setAddrMeta(meta);
 
       if (!allowed) {
-        setLocError("Maaf, alamat di luar Kecamatan Ambarawa. Pesanan tidak bisa dikonfirmasi.");
+        setLocError("Maaf, alamat di luar area layanan kami.");
       }
     } catch (e) {
-      setLocError("Gagal ambil lokasi. Aktifkan GPS/izin lokasi lalu coba lagi.");
+      // beri pesan sesuai kode error kalau ada
+      if (e?.code === 1) setLocError("Izin lokasi ditolak. Izinkan akses lokasi di pengaturan browser.");
+      else if (e?.code === 2) setLocError("Lokasi tidak tersedia. Coba aktifkan GPS/High accuracy.");
+      else if (e?.code === 3) setLocError("Pengambilan lokasi timeout. Coba lagi, pindah dekat jendela/outdoor.");
+      else setLocError("Gagal ambil lokasi. Aktifkan GPS/izin lokasi lalu coba lagi.");
     } finally {
       setLocating(false);
     }
@@ -760,24 +822,22 @@ function getPrecisePosition({ timeoutMs = 8000, targetAcc = 40 } = {}) {
 
   // === teks pesanan & link WA ===
   const orderText = useMemo(() => {
-  const lines = [
-    `Pesanan Sayur5`,
-    `Nama: ${form.name}`,
-    `Telp: ${form.phone}`,
-    `Alamat: ${form.address}`,
-    mapsUrl ? `Pin Lokasi: ${mapsUrl}` : "",   // ⟵ baris link Maps
-    `Metode Bayar: ${form.payment.toUpperCase()}`,
-    `Rincian:`,
-    ...items.map((it) => `- ${it.name} x${it.qty} @${toIDR(it.price)} = ${toIDR(it.price * it.qty)}`),
-    `Subtotal: ${toIDR(subtotal)}`,
-    `Ongkir: ${shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}`,
-    `Total: ${toIDR(grandTotal)}`,
-    form.note ? `Catatan: ${form.note}` : "",
-  ].filter(Boolean);
-
-  return encodeURIComponent(lines.join("\n")); // encode sekali di akhir
-}, [form, items, subtotal, shippingFee, grandTotal, mapsUrl]);
-
+    const lines = [
+      `Pesanan Sayur5`,
+      `Nama: ${form.name}`,
+      `Telp: ${form.phone}`,
+      `Alamat: ${form.address}`,
+      mapsUrl ? `Pin Lokasi: ${mapsUrl}` : "",
+      `Metode Bayar: ${form.payment.toUpperCase()}`,
+      `Rincian:`,
+      ...safeItems.map((it) => `- ${it.name} x${it.qty} @${toIDR(it.price)} = ${toIDR(it.price * it.qty)}`),
+      `Subtotal: ${toIDR(subtotal)}`,
+      `Ongkir: ${shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}`,
+      `Total: ${toIDR(grandTotal)}`,
+      form.note ? `Catatan: ${form.note}` : "",
+    ].filter(Boolean);
+    return encodeURIComponent(lines.join("\n"));
+  }, [form, safeItems, subtotal, shippingFee, grandTotal, mapsUrl]);
 
   const waLink = `https://wa.me/${toWA(storePhone)}?text=${orderText}`;
 
@@ -831,7 +891,7 @@ function getPrecisePosition({ timeoutMs = 8000, targetAcc = 40 } = {}) {
 
         {typeof addrMeta?.accuracy === "number" && (
           <div className="text-[11px] text-slate-500 mt-1">
-            Akurasi lokasi ≈ {Math.round(addrMeta.accuracy)} m
+            Akurasi lokasi ≈ {Math.round(addrMeta.accuracy)} m {addrMeta?.branch ? `• ${addrMeta.branch.label}` : ""}
           </div>
         )}
 
@@ -852,7 +912,6 @@ function getPrecisePosition({ timeoutMs = 8000, targetAcc = 40 } = {}) {
             onChange={(e) => setForm({ ...form, payment: e.target.value })}
           >
             <option value="cod">COD (Cash on Delivery)</option>
-            {/* tambahkan opsi lain kalau perlu */}
           </select>
         </label>
         <label className="grid gap-1 text-sm">
@@ -869,11 +928,9 @@ function getPrecisePosition({ timeoutMs = 8000, targetAcc = 40 } = {}) {
       <div className="mt-2 border rounded-2xl p-3 bg-slate-50">
         <div className="font-semibold mb-2">Ringkasan</div>
         <div className="space-y-1 text-sm">
-          {items.map((it) => (
+          {safeItems.map((it) => (
             <div key={it.id} className="flex justify-between">
-              <span>
-                {it.name} x{it.qty}
-              </span>
+              <span>{it.name} x{it.qty}</span>
               <span>{toIDR(it.price * it.qty)}</span>
             </div>
           ))}
@@ -892,7 +949,6 @@ function getPrecisePosition({ timeoutMs = 8000, targetAcc = 40 } = {}) {
         </div>
       </div>
 
-      {/* Tombol WA mengikuti validasi layanan */}
       <div className="flex flex-col sm:flex-row gap-2 mt-1">
         <a
           href={waLink}
@@ -912,4 +968,5 @@ function getPrecisePosition({ timeoutMs = 8000, targetAcc = 40 } = {}) {
     </div>
   );
 }
+
 
