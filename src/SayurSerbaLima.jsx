@@ -1,4 +1,4 @@
-cimport React, { useEffect, useMemo, useState,useRef } from "react";
+import React, { useEffect, useMemo, useState,useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShoppingCart, Leaf, Search, Truck, BadgePercent, Phone, MapPin,
