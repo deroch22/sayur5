@@ -868,4 +868,3 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
   );
 }
 
-export default CheckoutForm;
