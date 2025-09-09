@@ -25,9 +25,13 @@ jobs:
           node-version: 20
           cache: npm
 
-      - run: npm ci || npm install
+      - name: Install deps
+        run: npm ci || npm install
 
-      # Bangun dengan base '/sayur5/' (DEPLOY_TARGET=gh)
+      - name: Check single React copy
+        run: |
+          npm ls react react-dom || true
+
       - name: Build (GitHub Pages)
         run: npm run build
         env:
@@ -35,8 +39,7 @@ jobs:
           VITE_ADMIN_ALLOWED_HOSTS: localhost,127.0.0.1
           VITE_ENABLE_ADMIN: "false"
 
-      # Tambahan penting untuk SPA di Pages
-      - name: Add Pages extras (.nojekyll + 404)
+      - name: Add Pages extras (.nojekyll + 404) & inspect dist
         run: |
           touch dist/.nojekyll
           cp dist/index.html dist/404.html
