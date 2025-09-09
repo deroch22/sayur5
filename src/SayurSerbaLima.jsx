@@ -642,6 +642,18 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
   const [locError, setLocError] = useState("");
   const [addrMeta, setAddrMeta] = useState(null); // { lat, lng, allowed, geocode?, ... }
 
+  // URL Google Maps dari lat,lng (hasil Share Lokasi) atau fallback dari alamat teks
+const mapsUrl = useMemo(() => {
+  if (addrMeta?.lat && addrMeta?.lng) {
+    const { lat, lng } = addrMeta;
+    return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  }
+  const q = addrMeta?.geocode?.display_name || form.address || "";
+  return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : "";
+}, [addrMeta, form.address]);
+
+  
+
   // Prefill alamat dari cache (≤ 15 menit)
   useEffect(() => {
     const cached = readJSON("sayur5.locCache", null);
@@ -722,22 +734,24 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
 
   // === teks pesanan & link WA ===
   const orderText = useMemo(() => {
-    const lines = [
-      `Pesanan Sayur5`,
-      `Nama: ${form.name}`,
-      `Telp: ${form.phone}`,
-      `Alamat: ${form.address}`,
-      `Metode Bayar: ${form.payment.toUpperCase()}`,
-      `Rincian:`,
-      ...items.map((it) => `- ${it.name} x${it.qty} @${toIDR(it.price)} = ${toIDR(it.price * it.qty)}`),
-      `Subtotal: ${toIDR(subtotal)}`,
-      `Ongkir: ${shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}`,
-      `Total: ${toIDR(grandTotal)}`,
-      form.note ? `Catatan: ${form.note}` : "",
-    ].filter(Boolean);
-    // Encode aman untuk WhatsApp
-    return encodeURIComponent(lines.join("\n"));
-  }, [form, items, subtotal, shippingFee, grandTotal]);
+  const lines = [
+    `Pesanan Sayur5`,
+    `Nama: ${form.name}`,
+    `Telp: ${form.phone}`,
+    `Alamat: ${form.address}`,
+    mapsUrl ? `Pin Lokasi: ${mapsUrl}` : "",   // ⟵ baris link Maps
+    `Metode Bayar: ${form.payment.toUpperCase()}`,
+    `Rincian:`,
+    ...items.map((it) => `- ${it.name} x${it.qty} @${toIDR(it.price)} = ${toIDR(it.price * it.qty)}`),
+    `Subtotal: ${toIDR(subtotal)}`,
+    `Ongkir: ${shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}`,
+    `Total: ${toIDR(grandTotal)}`,
+    form.note ? `Catatan: ${form.note}` : "",
+  ].filter(Boolean);
+
+  return encodeURIComponent(lines.join("\n")); // encode sekali di akhir
+}, [form, items, subtotal, shippingFee, grandTotal, mapsUrl]);
+
 
   const waLink = `https://wa.me/${toWA(storePhone)}?text=${orderText}`;
 
