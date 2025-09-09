@@ -1000,7 +1000,7 @@ const { mapsPinUrl, mapsNavUrl } = useMemo(() => {
         </div>
       </div>
 
-      <<div className="flex flex-col sm:flex-row gap-2 mt-1">
+      <div> className="flex flex-col sm:flex-row gap-2 mt-1">
   <a
     href={waLink}
     target="_blank"
