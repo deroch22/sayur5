@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState,useRef } from "react";
+cimport React, { useEffect, useMemo, useState,useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShoppingCart, Leaf, Search, Truck, BadgePercent, Phone, MapPin,
@@ -760,18 +760,23 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
 
   // Link peta
 // URL Google Maps dari lat,lng (hasil Share Lokasi) atau fallback alamat
-const mapsUrl = useMemo(() => {
-  const fmt6 = (n) => (Number.isFinite(Number(n)) ? Number(n).toFixed(6) : "");
-  if (addrMeta?.lat && addrMeta?.lng) {
-    const lat = Number(addrMeta.lat).toFixed(6);
-    const lng = Number(addrMeta.lng).toFixed(6);
-    // format yang paling “klik-able” di WhatsApp
-    return `https://maps.google.com/?q=${lat},${lng}`;
+const { mapsPinUrl, mapsNavUrl } = useMemo(() => {
+  let pin = "", nav = "";
+  if (addrMeta?.lat != null && addrMeta?.lng != null) {
+    const lat = to6(addrMeta.lat), lng = to6(addrMeta.lng);
+    // buka pin tepat di koordinat
+    pin = `https://maps.google.com/?q=${lat},${lng}`;
+    // langsung mode navigasi ke koordinat tsb
+    nav = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+  } else {
+    const q = addrMeta?.geocode?.display_name || form.address || "";
+    if (q) {
+      pin = `https://maps.google.com/?q=${encodeURIComponent(q)}`;
+      nav = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}&travelmode=driving`;
+    }
   }
-  const q = addrMeta?.geocode?.display_name || form.address || "";
-  return q ? `https://maps.google.com/?q=${encodeURIComponent(q)}` : "";
+  return { mapsPinUrl: pin, mapsNavUrl: nav };
 }, [addrMeta, form.address]);
-
 
 
 
@@ -837,25 +842,20 @@ const mapsUrl = useMemo(() => {
     `Pesanan Sayur5`,
     `Nama: ${form.name}`,
     `Telp: ${form.phone}`,
+    mapsPinUrl ? `Pin Lokasi (klik): ${mapsPinUrl}` : "",
+    mapsNavUrl ? `Navigasi: ${mapsNavUrl}` : "",
     `Alamat: ${form.address}`,
-    // ⬇️ ini EKSPRESI, bukan string—jangan pakai tanda kutip di luarnya
-    addrMeta?.lat && addrMeta?.lng
-      ? `Koordinat: ${addrMeta.lat.toFixed(6)}, ${addrMeta.lng.toFixed(6)}`
-      : "",
-    mapsUrl ? `Pin Lokasi (klik): ${mapsUrl}` : "",
+    `Koordinat: ${addrMeta?.lat != null && addrMeta?.lng != null ? to6(addrMeta.lat)+", "+to6(addrMeta.lng) : "-"}`,
     `Metode Bayar: ${form.payment.toUpperCase()}`,
     `Rincian:`,
-    ...safeItems.map(
-      (it) => `- ${it.name} x${it.qty} @${toIDR(it.price)} = ${toIDR(it.price * it.qty)}`
-    ),
+    ...items.map((it) => `- ${it.name} x${it.qty} @${toIDR(it.price)} = ${toIDR(it.price * it.qty)}`),
     `Subtotal: ${toIDR(subtotal)}`,
     `Ongkir: ${shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}`,
     `Total: ${toIDR(grandTotal)}`,
     form.note ? `Catatan: ${form.note}` : "",
   ].filter(Boolean);
-
   return encodeURIComponent(lines.join("\n"));
-}, [form, safeItems, subtotal, shippingFee, grandTotal, mapsUrl, addrMeta]);
+}, [form, items, subtotal, shippingFee, grandTotal, mapsPinUrl, mapsNavUrl, addrMeta]);
 
 
   const waLink = `https://wa.me/${toWA(storePhone)}?text=${orderText}`;
@@ -908,6 +908,27 @@ const mapsUrl = useMemo(() => {
           className={`rounded-xl ${form.address && !inServiceArea ? "border-red-500" : ""}`}
         />
 
+        <input
+            type="text"
+            inputMode="decimal"
+            placeholder="Koordinat manual (contoh: -7.261261, 110.398899)"
+            className="border rounded-xl h-9 px-3 text-sm mt-1"
+            onBlur={(e) => {
+              const m = String(e.target.value).match(/-?\d+(\.\d+)?/g);
+              if (m && m.length >= 2) {
+                const lat = parseFloat(m[0]), lng = parseFloat(m[1]);
+                if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                  const allowed = isInsideAmbarawa(lat, lng);
+                  const meta = { lat, lng, accuracy: 0, allowed, source: "manual" };
+                  setAddrMeta(meta);
+                  writeJSON("sayur5.locCache", { ts: Date.now(), text: form.address, meta });
+                  if (!allowed) setLocError("Maaf, titik ini di luar Kecamatan Ambarawa.");
+                }
+              }
+            }}
+          />
+
+
         {addrMeta && (
           <div className="text-[11px] text-slate-500 mt-1">
             lat {addrMeta.lat?.toFixed(6)}, lng {addrMeta.lng?.toFixed(6)}
@@ -916,6 +937,8 @@ const mapsUrl = useMemo(() => {
           </div>
         )}
 
+        
+    
 
         {!!locError && <div className="text-xs text-red-600 mt-1">{locError}</div>}
         {form.address && !inServiceArea && (
