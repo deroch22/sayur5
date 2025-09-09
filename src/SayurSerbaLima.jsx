@@ -755,14 +755,16 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
 
   // Link peta
   const mapsUrl = useMemo(() => {
-    const fmt = (n) => Number(n).toFixed(6);
-    if (addrMeta?.lat && addrMeta?.lng) {
-      const { lat, lng } = addrMeta;
-      return `https://www.google.com/maps/search/?api=1&query=loc:${fmt(lat)},${fmt(lng)}`;
-    }
-    const q = addrMeta?.geocode?.display_name || form.address || "";
-    return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : "";
-  }, [addrMeta, form.address]);
+  const fmt = (n) => Number(n).toFixed(6);
+  if (addrMeta?.lat && addrMeta?.lng) {
+    const { lat, lng } = addrMeta;
+    // q=lat,lng + ll=lat,lng + z=19 bikin Maps fokus di pin yang sama
+    return `https://www.google.com/maps?q=${fmt(lat)},${fmt(lng)}&ll=${fmt(lat)},${fmt(lng)}&z=19`;
+  }
+  const q = addrMeta?.geocode?.display_name || form.address || "";
+  return q ? `https://www.google.com/maps?q=${encodeURIComponent(q)}` : "";
+}, [addrMeta, form.address]);
+
 
   // Items aman
   const safeItems = Array.isArray(items) ? items : [];
@@ -889,11 +891,14 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
           className={`rounded-xl ${form.address && !inServiceArea ? "border-red-500" : ""}`}
         />
 
-        {typeof addrMeta?.accuracy === "number" && (
+        {addrMeta && (
           <div className="text-[11px] text-slate-500 mt-1">
-            Akurasi lokasi ≈ {Math.round(addrMeta.accuracy)} m {addrMeta?.branch ? `• ${addrMeta.branch.label}` : ""}
+            lat {addrMeta.lat?.toFixed(6)}, lng {addrMeta.lng?.toFixed(6)}
+            {typeof addrMeta.accuracy === "number" && ` • akurasi ±${Math.round(addrMeta.accuracy)} m`}
+            {addrMeta?.branch?.label && ` • ${addrMeta.branch.label}`}
           </div>
         )}
+
 
         {!!locError && <div className="text-xs text-red-600 mt-1">{locError}</div>}
         {form.address && !inServiceArea && (
