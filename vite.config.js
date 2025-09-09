@@ -10,7 +10,10 @@ export default defineConfig(() => {
   return {
     plugins: [react()],
     base: isCF ? "/" : "/sayur5/",
-    resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
+     resolve: {
+      alias: { "@": path.resolve(__dirname, "./src") },
+      dedupe: ["react", "react-dom"], // ⬅️ penting
+    },
     build: {
       outDir: "dist",
       assetsDir: "assets",
