@@ -642,61 +642,81 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
   const [locError, setLocError] = useState("");
   const [addrMeta, setAddrMeta] = useState(null); // { lat, lng, allowed, geocode?, ... }
 
-  // URL Google Maps dari lat,lng (hasil Share Lokasi) atau fallback dari alamat teks
-const mapsUrl = useMemo(() => {
+  const mapsUrl = useMemo(() => {
+  const fmt = (n) => Number(n).toFixed(6); // 6 desimal cukup (~10 cm)
   if (addrMeta?.lat && addrMeta?.lng) {
     const { lat, lng } = addrMeta;
-    return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+    // 'loc:lat,lng' memaksa Google Maps menganggap ini titik koordinat, bukan teks
+    return `https://www.google.com/maps/search/?api=1&query=loc:${fmt(lat)},${fmt(lng)}`;
+    // Alternatif yang juga oke:
+    // return `https://maps.google.com/?q=${fmt(lat)},${fmt(lng)}`;
   }
   const q = addrMeta?.geocode?.display_name || form.address || "";
   return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : "";
 }, [addrMeta, form.address]);
 
-  
 
-  // Prefill alamat dari cache (≤ 15 menit)
-  useEffect(() => {
-    const cached = readJSON("sayur5.locCache", null);
-    if (cached && Date.now() - cached.ts < 15 * 60 * 1000) {
-      setForm(f => ({ ...f, address: cached.text || "" }));
-      setAddrMeta(cached.meta ?? null);
+  // util kecil di dalam CheckoutForm.jsx
+function getPrecisePosition({ timeoutMs = 8000, targetAcc = 40 } = {}) {
+  return new Promise((resolve, reject) => {
+    let done = false;
+    const options = { enableHighAccuracy: true, maximumAge: 0, timeout: timeoutMs };
+
+    // fallback jika watchPosition tidak tersedia
+    if (!navigator.geolocation?.watchPosition) {
+      navigator.geolocation.getCurrentPosition(resolve, reject, options);
+      return;
     }
-  }, []);
 
-  // Fallback regex jika user ketik alamat manual
-  const SERVICE_RE = /ambarawa/i;
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve(pos),
+        (err) => reject(err),
+        options
+      );
+      navigator.geolocation.clearWatch(watchId);
+    }, timeoutMs);
 
-  const inServiceArea = useMemo(() => {
-    // Prioritas 1: hasil geofence (pasti paling akurat)
-    if (addrMeta?.allowed === true) return true;
-
-    // Prioritas 2: cek teks alamat yang diketik
-    if (SERVICE_RE.test(form.address || "")) return true;
-
-    // Prioritas 3: cek hasil reverse geocode (jika ada)
-    const g = addrMeta?.geocode;
-    if (g) {
-      if (SERVICE_RE.test(g.display_name || "")) return true;
-      const parts = g.address ? Object.values(g.address) : [];
-      if (parts.some(v => SERVICE_RE.test(String(v || "")))) return true;
-    }
-    return false;
-  }, [form.address, addrMeta]);
-
-  const canSubmit = Boolean(
-    form.name &&
-    validPhone &&
-    form.address &&
-    items.length > 0 &&
-    inServiceArea
-  );
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        // ambil begitu akurasinya sudah cukup baik
+        if (done) return;
+        const acc = pos.coords.accuracy || 9999;
+        if (acc <= targetAcc) {
+          done = true;
+          clearTimeout(timer);
+          navigator.geolocation.clearWatch(watchId);
+          resolve(pos);
+        }
+      },
+      (err) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        navigator.geolocation.clearWatch(watchId);
+        reject(err);
+      },
+      options
+    );
+  });
+}
 
   // === Share Location ===
   async function useMyLocation() {
     setLocError("");
     setLocating(true);
     try {
-      const pos = await new Promise((resolve, reject) => {
+       const posRaw = await getPrecisePosition({ timeoutMs: 8000, targetAcc: 40 });
+       const pos = {
+         lat: posRaw.coords.latitude,
+         lng: posRaw.coords.longitude,
+         accuracy: posRaw.coords.accuracy,
+         heading: posRaw.coords.heading,
+         speed: posRaw.coords.speed,
+       }; 
+      new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(
           p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
           reject,
@@ -802,6 +822,12 @@ const mapsUrl = useMemo(() => {
           placeholder="Jalan, RT/RW, Kel/Desa, Kecamatan, Kota"
           className={`rounded-xl ${form.address && !inServiceArea ? "border-red-500" : ""}`}
         />
+
+        {typeof addrMeta?.accuracy === "number" && (
+          <div className="text-[11px] text-slate-500 mt-1">
+            Akurasi lokasi ≈ {Math.round(addrMeta.accuracy)} m
+          </div>
+        )}
 
         {!!locError && <div className="text-xs text-red-600 mt-1">{locError}</div>}
         {form.address && !inServiceArea && (
