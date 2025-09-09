@@ -655,6 +655,12 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
   return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : "";
 }, [addrMeta, form.address]);
 
+  const safeItems = Array.isArray(items) ? items : [];
+  const canSubmit = Boolean(
+    form.name && validPhone && form.address && safeItems.length > 0 && inServiceArea
+  );
+  const canConfirm = canSubmit;
+
 
   // util kecil di dalam CheckoutForm.jsx
 function getPrecisePosition({ timeoutMs = 8000, targetAcc = 40 } = {}) {
