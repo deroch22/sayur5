@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react";
 import path from "node:path";
 
 export default defineConfig(() => {
-  const target = process.env.DEPLOY_TARGET || "gh"; // gh | cf
+  const target = process.env.DEPLOY_TARGET || "gh";
   const isCF = target === "cf";
 
   return {
@@ -12,18 +12,17 @@ export default defineConfig(() => {
     base: isCF ? "/" : "/sayur5/",
     resolve: {
       alias: { "@": path.resolve(__dirname, "./src") },
-      dedupe: ["react", "react-dom"],        // cegah 2 kopi React
+      dedupe: ["react", "react-dom"],     // ⬅️ cegah dua kopi React
     },
     optimizeDeps: {
-      include: ["react", "react-dom"],       // pastikan di-prebundle
+      include: ["react", "react-dom"],    // ⬅️ pastikan dipre-bundle
     },
     build: {
       outDir: "dist",
       assetsDir: "assets",
       emptyOutDir: true,
-      ...(isCF
-        ? { rollupOptions: { input: { admin: path.resolve(__dirname, "admin/index.html") } } }
-        : {}),
+      sourcemap: true,                    // ⬅️ biar trace error jelas
+      ...(isCF ? { rollupOptions: { input: { admin: path.resolve(__dirname, "admin/index.html") } } } : {}),
     },
     server: {
       proxy: {
