@@ -839,24 +839,30 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
 
   // === teks pesanan & link WA ===
   const orderText = useMemo(() => {
-    const lines = [
-      `Pesanan Sayur5`,
-      `Nama: ${form.name}`,
-      `Telp: ${form.phone}`,
-      `Alamat: ${form.address}`,
-      'addrMeta?.lat && addrMeta?.lng ? `Koordinat: ${addrMeta.lat.toFixed(6)}, ${addrMeta.lng.toFixed(6)}` : "",
-      mapsUrl ? `Pin Lokasi: ${mapsUrl}` : "",
-      mapsUrl ? `Pin Lokasi: ${mapsUrl}` : "",
-      `Metode Bayar: ${form.payment.toUpperCase()}`,
-      `Rincian:`,
-      ...safeItems.map((it) => `- ${it.name} x${it.qty} @${toIDR(it.price)} = ${toIDR(it.price * it.qty)}`),
-      `Subtotal: ${toIDR(subtotal)}`,
-      `Ongkir: ${shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}`,
-      `Total: ${toIDR(grandTotal)}`,
-      form.note ? `Catatan: ${form.note}` : "",
-    ].filter(Boolean);
-    return encodeURIComponent(lines.join("\n"));
-  }, [form, safeItems, subtotal, shippingFee, grandTotal, mapsUrl]);
+  const lines = [
+    `Pesanan Sayur5`,
+    `Nama: ${form.name}`,
+    `Telp: ${form.phone}`,
+    `Alamat: ${form.address}`,
+    // ⬇️ ini EKSPRESI, bukan string—jangan pakai tanda kutip di luarnya
+    addrMeta?.lat && addrMeta?.lng
+      ? `Koordinat: ${addrMeta.lat.toFixed(6)}, ${addrMeta.lng.toFixed(6)}`
+      : "",
+    mapsUrl ? `Pin Lokasi: ${mapsUrl}` : "",
+    `Metode Bayar: ${form.payment.toUpperCase()}`,
+    `Rincian:`,
+    ...safeItems.map(
+      (it) => `- ${it.name} x${it.qty} @${toIDR(it.price)} = ${toIDR(it.price * it.qty)}`
+    ),
+    `Subtotal: ${toIDR(subtotal)}`,
+    `Ongkir: ${shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}`,
+    `Total: ${toIDR(grandTotal)}`,
+    form.note ? `Catatan: ${form.note}` : "",
+  ].filter(Boolean);
+
+  return encodeURIComponent(lines.join("\n"));
+}, [form, safeItems, subtotal, shippingFee, grandTotal, mapsUrl, addrMeta]);
+
 
   const waLink = `https://wa.me/${toWA(storePhone)}?text=${orderText}`;
 
