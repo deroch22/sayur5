@@ -756,6 +756,7 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
   // Link peta
 // URL Google Maps dari lat,lng (hasil Share Lokasi) atau fallback alamat
 const mapsUrl = useMemo(() => {
+  const fmt6 = (n) => (Number.isFinite(Number(n)) ? Number(n).toFixed(6) : "");
   if (addrMeta?.lat && addrMeta?.lng) {
     const lat = Number(addrMeta.lat).toFixed(6);
     const lng = Number(addrMeta.lng).toFixed(6);
