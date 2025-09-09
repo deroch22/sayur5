@@ -755,10 +755,19 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
 
   // Link peta
   const mapsUrl = useMemo(() => {
-  const fmt = (n) => Number(n).toFixed(6);
-  const hasCoord = addrMeta?.lat && addrMeta?.lng;
-  const lat = hasCoord ? fmt(addrMeta.lat) : null;
-  const lng = hasCoord ? fmt(addrMeta.lng) : null;
+  const fmt = (n) => Number(n).toFixed(6); // rapi & stabil
+  if (addrMeta?.lat && addrMeta?.lng) {
+    const lat = fmt(addrMeta.lat), lng = fmt(addrMeta.lng);
+    // 100% clickable di WA, dan pin tepat di titiknya:
+    return `https://maps.google.com/?q=${lat},${lng}`;
+    // alternatif setara:
+    // return `https://www.google.com/maps/search/?api=1&query=loc:${lat},${lng}`;
+    // atau untuk buka app (Android) biasanya juga oke:
+    // return `https://maps.app.goo.gl/?q=${lat},${lng}`;
+  }
+  const q = addrMeta?.geocode?.display_name || form.address || "";
+  return q ? `https://maps.google.com/?q=${encodeURIComponent(q)}` : "";
+}, [addrMeta, form.address]);
 
   // Deteksi Android (untuk geo: scheme)
   const isAndroid = /Android/i.test(navigator.userAgent || "");
