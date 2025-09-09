@@ -678,7 +678,7 @@ function writeJSONLocal(key, val) {
 }
 
 // Dapatkan posisi dengan akurasi baik, ada fallback
-function getPrecisePosition({ timeoutMs = 20000, targetAcc = 50 } = {}) {
+function getPrecisePosition({ timeoutMs = 30000, targetAcc = 25 } = {}) {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error("no-geolocation"));
@@ -756,13 +756,28 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
   // Link peta
   const mapsUrl = useMemo(() => {
   const fmt = (n) => Number(n).toFixed(6);
-  if (addrMeta?.lat && addrMeta?.lng) {
-    const { lat, lng } = addrMeta;
-    // q=lat,lng + ll=lat,lng + z=19 bikin Maps fokus di pin yang sama
-    return `https://www.google.com/maps?q=${fmt(lat)},${fmt(lng)}&ll=${fmt(lat)},${fmt(lng)}&z=19`;
+  const hasCoord = addrMeta?.lat && addrMeta?.lng;
+  const lat = hasCoord ? fmt(addrMeta.lat) : null;
+  const lng = hasCoord ? fmt(addrMeta.lng) : null;
+
+  // Deteksi Android (untuk geo: scheme)
+  const isAndroid = /Android/i.test(navigator.userAgent || "");
+
+  if (hasCoord) {
+    // PRIORITAS 1 (Android): geo: selalu membuka pin tepat di app Maps
+    if (isAndroid) {
+      // label opsional biar kurir lihat teks
+      const label = encodeURIComponent("Pin Sayur5");
+      return `geo:${lat},${lng}?q=${lat},${lng}(${label})`;
+    }
+    // PRIORITAS 2 (semua platform): link rute ke koordinat (lebih stabil dari 'search')
+    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+    // Catatan: WA sering mengabaikan 'search', tapi 'dir' konsisten menaruh pin 'Destination'
   }
+
+  // Tanpa koordinat, jatuh ke pencarian teks
   const q = addrMeta?.geocode?.display_name || form.address || "";
-  return q ? `https://www.google.com/maps?q=${encodeURIComponent(q)}` : "";
+  return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : "";
 }, [addrMeta, form.address]);
 
 
@@ -829,6 +844,8 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
       `Nama: ${form.name}`,
       `Telp: ${form.phone}`,
       `Alamat: ${form.address}`,
+      'addrMeta?.lat && addrMeta?.lng ? `Koordinat: ${addrMeta.lat.toFixed(6)}, ${addrMeta.lng.toFixed(6)}` : "",
+      mapsUrl ? `Pin Lokasi: ${mapsUrl}` : "",
       mapsUrl ? `Pin Lokasi: ${mapsUrl}` : "",
       `Metode Bayar: ${form.payment.toUpperCase()}`,
       `Rincian:`,
