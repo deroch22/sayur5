@@ -1000,37 +1000,39 @@ const { mapsPinUrl, mapsNavUrl } = useMemo(() => {
         </div>
       </div>
 
-      <div> className="flex flex-col sm:flex-row gap-2 mt-1">
-  <a
-    href={waLink}
-    target="_blank"
-    rel="noreferrer"
-    aria-disabled={!canSubmit}
-    className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${
-      !canSubmit ? "opacity-50 pointer-events-none" : ""
-    }`}
-    onClick={onSubmit}
-  >
-    Pesan via WhatsApp
-  </a>
-</div>
+            {/* Tombol WA */}
+      <div className="flex flex-col sm:flex-row gap-2 mt-1">
+        <a
+          href={waLink}
+          target="_blank"
+          rel="noreferrer"
+          aria-disabled={!canSubmit}
+          className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${
+            !canSubmit ? "opacity-50 pointer-events-none" : ""
+          }`}
+          onClick={onSubmit}
+        >
+          Pesan via WhatsApp
+        </a>
+      </div>
 
-<div className="text-xs text-slate-500">
-  *Tombol WhatsApp akan membuka chat dengan format pesanan otomatis. Layanan saat ini khusus Kecamatan Ambarawa.
-</div>
+      <div className="text-xs text-slate-500">
+        {/* Catatan: komentar JSX harus dalam { /* ... * / } */}
+        *Tombol WhatsApp akan membuka chat dengan format pesanan otomatis. Layanan saat ini khusus Kecamatan Ambarawa.
+      </div>
 
-{/* ⬇️ Render modal MapPicker di luar teks, sebagai sibling */}
-{mapOpen && (
-  <MapPicker
-    initial={
-      addrMeta?.lat && addrMeta?.lng
-        ? { lat: addrMeta.lat, lng: addrMeta.lng }
-        : { lat: AMBARAWA_CENTER.lat, lng: AMBARAWA_CENTER.lng }
-    }
-    onCancel={() => setMapOpen(false)}
-    onConfirm={onPickFromMap}
-  />
-)}
-
-    
-
+      {/* Modal MapPicker sebagai sibling di akhir container */}
+      {mapOpen && (
+        <MapPicker
+          initial={
+            addrMeta?.lat && addrMeta?.lng
+              ? { lat: addrMeta.lat, lng: addrMeta.lng }
+              : { lat: AMBARAWA_CENTER.lat, lng: AMBARAWA_CENTER.lng }
+          }
+          onCancel={() => setMapOpen(false)}
+          onConfirm={onPickFromMap}
+        />
+      )}
+    </div> {/* ⬅️ penutup container utama: <div className="grid gap-3"> */}
+  );
+}
