@@ -5,6 +5,9 @@ import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom"
 import SayurSerbaLima from "./SayurSerbaLima.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import "./index.css";
+import App from "./App.jsx";
+import "leaflet/dist/leaflet.css";
+
 
 const ENABLE_ADMIN = import.meta.env.VITE_ENABLE_ADMIN === "true";
 let LazyAdmin = null;
