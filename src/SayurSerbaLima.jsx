@@ -654,16 +654,15 @@ function isInsideBranches(lat, lng) {
   return { allowed: !!b, branch: b };
 }
 
-async function reverseGeocode(lat, lng) {
-  // Nominatim OSM (ringan, tanpa API key). Jangan spam (rate limit).
+// === Helpers (rename agar tidak bentrok) ===
+async function reverseGeocodeOSM(lat, lng) {
   const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1`;
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error("reverse-geocode-failed");
   return await res.json();
 }
 
-// localStorage aman
-function readJSON(key, fallback = null) {
+function readJSONLocal(key, fallback = null) {
   try {
     const s = localStorage.getItem(key);
     return s ? JSON.parse(s) : fallback;
@@ -671,10 +670,11 @@ function readJSON(key, fallback = null) {
     return fallback;
   }
 }
-function writeJSON(key, val) {
+
+function writeJSONLocal(key, val) {
   try {
     localStorage.setItem(key, JSON.stringify(val));
-  } catch { /* quota penuh? biarkan diam */ }
+  } catch { /* ignore quota errors */ }
 }
 
 // Dapatkan posisi dengan akurasi baik, ada fallback
