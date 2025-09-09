@@ -40,6 +40,9 @@ jobs:
         run: |
           touch dist/.nojekyll
           cp dist/index.html dist/404.html
+          echo "---- dist/index.html (script tag) ----"
+          grep -n "<script" dist/index.html || true
+          echo "---- dist tree ----"
           ls -R dist
 
       - uses: actions/upload-pages-artifact@v3
