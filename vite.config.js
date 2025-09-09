@@ -10,21 +10,19 @@ export default defineConfig(() => {
   return {
     plugins: [react()],
     base: isCF ? "/" : "/sayur5/",
-     resolve: {
+    resolve: {
       alias: { "@": path.resolve(__dirname, "./src") },
-      dedupe: ["react", "react-dom"], // ⬅️ penting
+      dedupe: ["react", "react-dom"],        // cegah 2 kopi React
+    },
+    optimizeDeps: {
+      include: ["react", "react-dom"],       // pastikan di-prebundle
     },
     build: {
       outDir: "dist",
       assetsDir: "assets",
       emptyOutDir: true,
-      // ⚠️ Penting: HANYA Cloudflare yang pakai multiple input (admin)
       ...(isCF
-        ? {
-            rollupOptions: {
-              input: { admin: path.resolve(__dirname, "admin/index.html") },
-            },
-          }
+        ? { rollupOptions: { input: { admin: path.resolve(__dirname, "admin/index.html") } } }
         : {}),
     },
     server: {
