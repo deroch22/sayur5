@@ -1,42 +1,20 @@
 // src/main.jsx
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import SayurSerbaLima from "./SayurSerbaLima.jsx";
-import ErrorBoundary from "./ErrorBoundary.jsx";
-import "./index.css";
-import App from "./App.jsx";
 import "leaflet/dist/leaflet.css";
+import "./index.css";
 
+// log versi React supaya ketahuan di Console
+console.log("React version:", React?.version, "isNull?", React == null);
 
-const ENABLE_ADMIN = import.meta.env.VITE_ENABLE_ADMIN === "true";
-let LazyAdmin = null;
-if (ENABLE_ADMIN) {
-  LazyAdmin = React.lazy(() => import("./AdminPanel.jsx"));
+const root = document.getElementById("root");
+if (!root) {
+  document.body.innerHTML = "<pre>Missing &lt;div id='root'&gt; in index.html</pre>";
+} else {
+  ReactDOM.createRoot(root).render(
+    <React.StrictMode>
+      <SayurSerbaLima />
+    </React.StrictMode>
+  );
 }
-
-console.log("React version:", React?.version, "React object:", React);
-
-
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <Router>
-        <Routes>
-          <Route path="/" element={<SayurSerbaLima />} />
-          {ENABLE_ADMIN && (
-            <Route
-              path="/admin"
-              element={
-                <React.Suspense fallback={<div>Loading…</div>}>
-                  <LazyAdmin />
-                </React.Suspense>
-              }
-            />
-          )}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
-    </ErrorBoundary>
-  </React.StrictMode>
-);
