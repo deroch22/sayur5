@@ -19,19 +19,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
 
-      - run: npm run build
+      - name: Install deps
+        run: npm ci || npm install
+
+      - name: Check single React copy
+        run: |
+          npm ls react react-dom || true
+
+      - name: Build (GitHub Pages)
+        run: npm run build
         env:
-          DEPLOY_TARGET: gh                 # memastikan base '/sayur5/'
+          DEPLOY_TARGET: gh
           VITE_ADMIN_ALLOWED_HOSTS: localhost,127.0.0.1
-          VITE_ENABLE_ADMIN: "false"        # sembunyikan tombol Admin di Pages
+          VITE_ENABLE_ADMIN: "false"
 
-      - run: cp dist/index.html dist/404.html   # penting untuk BrowserRouter
+      - name: Add Pages extras (.nojekyll + 404) & inspect dist
+        run: |
+          touch dist/.nojekyll
+          cp dist/index.html dist/404.html
+          echo "---- dist/index.html (script tag) ----"
+          grep -n "<script" dist/index.html || true
+          echo "---- dist tree ----"
+          ls -R dist
 
       - uses: actions/upload-pages-artifact@v3
         with:

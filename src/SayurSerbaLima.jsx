@@ -13,10 +13,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { imgSrc } from "@/utils/img";
 import { readJSON, writeJSON, readStr, writeStr } from "@/utils/safe";
+import { isInsideAmbarawa, reverseGeocode, AMBARAWA_CENTER, } from "@/utils/geofence-ambarawa.js";
+import MapPicker from "@/components/MapPicker.jsx";
+
 
 
 
 /* ===== Helpers ===== */
+
+const to6 = (n) => {
+  const x = Number(n);
+  return Number.isFinite(x) ? x.toFixed(6) : "";
+};
+
 const DEFAULT_BASE_PRICE = 5000;
 
 const toIDR = (n) =>
@@ -624,117 +633,255 @@ function CartDrawer({
 }
 
 
+// === Helpers (boleh taruh di utils) =========================================
+
+// Konfigurasi area layanan: tinggal tambah cabang baru di sini
+const BRANCHES = [
+  { id: "ambarawa", label: "Kecamatan Ambarawa", lat: -7.267, lng: 110.400, radiusKm: 6.5 },
+  // contoh cabang lain:
+  // { id: "banyubiru", label: "Kecamatan Banyubiru", lat: -7.283, lng: 110.433, radiusKm: 6 }
+];
+
+function toRad(d) { return (d * Math.PI) / 180; }
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+function whichBranch(lat, lng) {
+  for (const b of BRANCHES) if (haversineKm(lat, lng, b.lat, b.lng) <= b.radiusKm) return b;
+  return null;
+}
+function isInsideBranches(lat, lng) {
+  const b = whichBranch(lat, lng);
+  return { allowed: !!b, branch: b };
+}
+
+// === Helpers (rename agar tidak bentrok) ===
+async function reverseGeocodeOSM(lat, lng) {
+  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1`;
+  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!res.ok) throw new Error("reverse-geocode-failed");
+  return await res.json();
+}
+
+function readJSONLocal(key, fallback = null) {
+  try {
+    const s = localStorage.getItem(key);
+    return s ? JSON.parse(s) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJSONLocal(key, val) {
+  try {
+    localStorage.setItem(key, JSON.stringify(val));
+  } catch { /* ignore quota errors */ }
+}
+
+// Dapatkan posisi dengan akurasi baik, ada fallback
+function getPrecisePosition({ timeoutMs = 30000, targetAcc = 25 } = {}) {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("no-geolocation"));
+      return;
+    }
+    let done = false;
+    const options = { enableHighAccuracy: true, maximumAge: 0, timeout: timeoutMs };
+
+    // gunakan watchPosition agar bisa “menunggu akurasi bagus”
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        if (done) return;
+        const acc = pos.coords.accuracy ?? 9999;
+        if (acc <= targetAcc) {
+          done = true;
+          navigator.geolocation.clearWatch(watchId);
+          resolve(pos);
+        }
+      },
+      (err) => {
+        if (done) return;
+        done = true;
+        navigator.geolocation.clearWatch(watchId);
+        reject(err);
+      },
+      options
+    );
+
+    // fallback: kalau sampai timeout belum “cukup akurat”, ambil sekali
+    setTimeout(() => {
+      if (done) return;
+      done = true;
+      navigator.geolocation.clearWatch(watchId);
+      navigator.geolocation.getCurrentPosition(resolve, reject, options);
+    }, timeoutMs);
+  });
+}
+
+// ============================================================================
 
 function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, storePhone }) {
   // === state lama ===
-  const [form, setForm] = useState({ name: "", phone: "", address: "", payment: "transfer", note: "" });
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    address: "",
+    payment: "cod",
+    note: "",
+  });
   const validPhone = isValidIndoPhone(form.phone);
 
-  // === state & helper baru (share loc + layanan Ambarawa) ===
+  // === state baru (share loc + batas layanan) ===
   const [locating, setLocating] = useState(false);
   const [locError, setLocError] = useState("");
-  const [addrMeta, setAddrMeta] = useState(null); // simpan metadata alamat dari reverse geocode
+  const [addrMeta, setAddrMeta] = useState(null); // { lat, lng, accuracy, allowed, branch?, geocode? }
+  const [mapOpen, setMapOpen] = useState(false);
 
-  // Prefill alamat dari cache (jika masih fresh 15 menit)
-useEffect(() => {
-  const cached = readJSON("sayur5.locCache", null);
-  if (cached && Date.now() - cached.ts < 15 * 60 * 1000) {
-    setForm(f => ({ ...f, address: cached.text }));
-    setAddrMeta(cached.meta ?? null);
-  }
-}, []);
+const applyCoords = async (lat, lng) => {
+  const allowed = isInsideAmbarawa(lat, lng);
+  let addressText = form.address;
+  const meta = { lat, lng, allowed, source: "map-picker" };
+  try {
+    const g = await reverseGeocode(lat, lng);
+    addressText = g.display_name || addressText;
+    meta.geocode = g;
+  } catch {}
+  writeJSON("sayur5.locCache", { ts: Date.now(), text: addressText, meta });
+  setForm((f) => ({ ...f, address: addressText }));
+  setAddrMeta(meta);
+  if (!allowed) setLocError("Maaf, titik ini di luar Kecamatan Ambarawa.");
+};
+
+const openMapPicker = () => { setLocError(""); setMapOpen(true); };
+const onPickFromMap = async (ll) => { setMapOpen(false); await applyCoords(ll.lat, ll.lng); };
 
 
-  // hanya melayani Kecamatan Ambarawa
-  const SERVICE_RE = /ambarawa/i;
-  const inServiceArea = useMemo(() => {
-    // 1) cek teks alamat yang diketik
-    if (SERVICE_RE.test(form.address || "")) return true;
-    // 2) cek hasil reverse-geocode (jika ada)
-    if (addrMeta && typeof addrMeta === "object") {
-      return Object.values(addrMeta).some((v) => SERVICE_RE.test(String(v || "")));
+  // restore cache lokasi 15 menit terakhir
+  useEffect(() => {
+    const cached = readJSON("sayur5.locCache", null);
+    if (cached && Date.now() - cached.ts < 15 * 60 * 1000) {
+      setForm((f) => ({ ...f, address: cached.text || f.address }));
+      setAddrMeta(cached.meta || null);
     }
-    return false;
-  }, [form.address, addrMeta]);
+  }, []);
 
-  const canSubmit = form.name && validPhone && form.address && items.length > 0 && inServiceArea;
+  // hitung status area layanan
+  const inServiceArea = useMemo(() => {
+    if (addrMeta?.allowed === true) return true;
+    if (addrMeta?.allowed === false) return false;
+    // fallback berbasis teks kalau user ketik manual
+    const s = (form.address || "").toLowerCase();
+    return /ambarawa/.test(s); // sederhana: cukup mengandung kata "Ambarawa"
+  }, [addrMeta, form.address]);
 
-  // === share location ===
+  // Link peta
+// URL Google Maps dari lat,lng (hasil Share Lokasi) atau fallback alamat
+const { mapsPinUrl, mapsNavUrl } = useMemo(() => {
+  let pin = "", nav = "";
+  if (addrMeta?.lat != null && addrMeta?.lng != null) {
+    const lat = to6(addrMeta.lat), lng = to6(addrMeta.lng);
+    // buka pin tepat di koordinat
+    pin = `https://maps.google.com/?q=${lat},${lng}`;
+    // langsung mode navigasi ke koordinat tsb
+    nav = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+  } else {
+    const q = addrMeta?.geocode?.display_name || form.address || "";
+    if (q) {
+      pin = `https://maps.google.com/?q=${encodeURIComponent(q)}`;
+      nav = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}&travelmode=driving`;
+    }
+  }
+  return { mapsPinUrl: pin, mapsNavUrl: nav };
+}, [addrMeta, form.address]);
+
+
+
+  // Items aman
+  const safeItems = Array.isArray(items) ? items : [];
+
+  // tombol aktif jika valid semua + dalam area
+  const canSubmit = Boolean(
+    form.name && validPhone && form.address && safeItems.length > 0 && inServiceArea
+  );
+  const canConfirm = canSubmit; // kompat lama
+
+  // === Share Location ===
   async function useMyLocation() {
     setLocError("");
-
-    if (!window.isSecureContext || !("geolocation" in navigator)) {
-      setLocError("Perangkat/browser tidak mendukung atau bukan HTTPS.");
-      return;
-    }
-
+    setLocating(true);
     try {
-      setLocating(true);
+      const posRaw = await getPrecisePosition({ timeoutMs: 20000, targetAcc: 25 });
+      const pos = {
+        lat: posRaw.coords.latitude,
+        lng: posRaw.coords.longitude,
+        accuracy: posRaw.coords.accuracy,
+        heading: posRaw.coords.heading,
+        speed: posRaw.coords.speed,
+      };
 
-      // 1) ambil koordinat
-      const pos = await new Promise((res, rej) =>
-        navigator.geolocation.getCurrentPosition(res, rej, {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 0,
-        })
-      );
-      const { latitude, longitude } = pos.coords;
+      const { allowed, branch } = isInsideBranches(pos.lat, pos.lng);
+      let addressText = "";
+      const meta = { ...pos, allowed, branch, source: "geolocation" };
 
-      // 2) reverse geocode (opsional)
-      let display = "";
-      let meta = null;
+      // Reverse geocode opsional
       try {
-        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`;
-        const resp = await fetch(url, { headers: { Accept: "application/json" } });
-        if (resp.ok) {
-          const data = await resp.json();
-          display = data?.display_name || "";
-          meta = data?.address || null; // simpan komponen alamat
-        }
+        const g = await reverseGeocode(pos.lat, pos.lng);
+        addressText = g.display_name || "";
+        meta.geocode = g;
       } catch {
-        // abaikan error reverse geocode; tetap pakai koordinat
+        /* boleh diabaikan */
       }
 
-      const gmaps = `https://maps.google.com/?q=${latitude},${longitude}`;
-      const text = [
-        display && `Alamat (perkiraan): ${display}`,
-        `Koordinat: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
-        `Link Maps: ${gmaps}`,
-      ]
-        .filter(Boolean)
-        .join("\n");
+      // cache 15 menit
+      writeJSON("sayur5.locCache", { ts: Date.now(), text: addressText, meta });
 
+      setForm((f) => ({ ...f, address: addressText || f.address }));
       setAddrMeta(meta);
-      setForm((f) => ({ ...f, address: text }));
+
+      if (!allowed) {
+        setLocError("Maaf, alamat di luar area layanan kami.");
+      }
     } catch (e) {
-      setLocError(e?.message || "Gagal mengambil lokasi. Coba aktifkan GPS dan izin lokasi.");
+      // beri pesan sesuai kode error kalau ada
+      if (e?.code === 1) setLocError("Izin lokasi ditolak. Izinkan akses lokasi di pengaturan browser.");
+      else if (e?.code === 2) setLocError("Lokasi tidak tersedia. Coba aktifkan GPS/High accuracy.");
+      else if (e?.code === 3) setLocError("Pengambilan lokasi timeout. Coba lagi, pindah dekat jendela/outdoor.");
+      else setLocError("Gagal ambil lokasi. Aktifkan GPS/izin lokasi lalu coba lagi.");
     } finally {
       setLocating(false);
     }
   }
 
-  // === tetap: teks pesanan & link WA ===
+  // === teks pesanan & link WA ===
   const orderText = useMemo(() => {
-    const lines = [
-      `Pesanan Sayur5`,
-      `Nama: ${form.name}`,
-      `Telp: ${form.phone}`,
-      `Alamat: ${form.address}`,
-      `Metode Bayar: ${form.payment}`,
-      `Rincian:`,
-      ...items.map((it) => `- ${it.name} x${it.qty} @${toIDR(it.price)} = ${toIDR(it.price * it.qty)}`),
-      `Subtotal: ${toIDR(subtotal)}`,
-      `Ongkir: ${shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}`,
-      `Total: ${toIDR(grandTotal)}`,
-      form.note ? `Catatan: ${form.note}` : "",
-    ].filter(Boolean);
-    return lines.join("%0A");
-  }, [form, items, subtotal, shippingFee, grandTotal]);
+  const lines = [
+    `Pesanan Sayur5`,
+    `Nama: ${form.name}`,
+    `Telp: ${form.phone}`,
+    mapsPinUrl ? `Pin Lokasi (klik): ${mapsPinUrl}` : "",
+    mapsNavUrl ? `Navigasi: ${mapsNavUrl}` : "",
+    `Alamat: ${form.address}`,
+    `Koordinat: ${addrMeta?.lat != null && addrMeta?.lng != null ? to6(addrMeta.lat)+", "+to6(addrMeta.lng) : "-"}`,
+    `Metode Bayar: ${form.payment.toUpperCase()}`,
+    `Rincian:`,
+    ...items.map((it) => `- ${it.name} x${it.qty} @${toIDR(it.price)} = ${toIDR(it.price * it.qty)}`),
+    `Subtotal: ${toIDR(subtotal)}`,
+    `Ongkir: ${shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}`,
+    `Total: ${toIDR(grandTotal)}`,
+    form.note ? `Catatan: ${form.note}` : "",
+  ].filter(Boolean);
+  return encodeURIComponent(lines.join("\n"));
+}, [form, items, subtotal, shippingFee, grandTotal, mapsPinUrl, mapsNavUrl, addrMeta]);
+
 
   const waLink = `https://wa.me/${toWA(storePhone)}?text=${orderText}`;
 
-  // === UI (dipertahankan, hanya tambah tombol lokasi & validasi area) ===
   return (
     <div className="grid gap-3">
       <div className="grid md:grid-cols-2 gap-3">
@@ -763,34 +910,29 @@ useEffect(() => {
 
       {/* Alamat + tombol share-loc */}
       <label className="grid gap-1 text-sm">
-        <div className="flex items-center justify-between">
-          <span>Alamat Lengkap</span>
-          <button
-            type="button"
-            onClick={useMyLocation}
-            disabled={locating}
-            className="inline-flex items-center gap-1 text-emerald-700 hover:underline disabled:opacity-50"
-          >
-            {locating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
-            Gunakan lokasi saya
-          </button>
-        </div>
+  <div className="flex items-center justify-between">
+    <span>Alamat Lengkap</span>
+    <div className="flex items-center gap-2">
+      {/* HAPUS tombol 'Gunakan lokasi saya' */}
+      <button
+        type="button"
+        onClick={() => setMapOpen(true)}
+        className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
+      >
+        Pilih lewat peta
+      </button>
+    </div>
+  </div>
 
-        <Textarea
-          value={form.address}
-          onChange={(e) => setForm({ ...form, address: e.target.value })}
-          placeholder="Jalan, RT/RW, Kel/Desa, Kecamatan, Kota"
-          className={`rounded-xl ${form.address && !inServiceArea ? "border-red-500" : ""}`}
-        />
+  <Textarea
+    value={form.address}
+    onChange={(e) => setForm({ ...form, address: e.target.value })}
+    placeholder="Jalan, RT/RW, Kel/Desa, Kecamatan, Kota"
+    className={`rounded-xl ${form.address && !inServiceArea ? "border-red-500" : ""}`}
+  />
+  {/* ... dst tetap */}
+</label>
 
-        {!!locError && <div className="text-xs text-red-600 mt-1">{locError}</div>}
-        {form.address && !inServiceArea && (
-          <div className="text-xs text-red-600 mt-1">
-            Maaf, saat ini kami hanya melayani pengiriman di <b>Kecamatan Ambarawa</b>.
-            Tuliskan “Ambarawa” pada alamat atau gunakan tombol lokasi.
-          </div>
-        )}
-      </label>
 
       <div className="grid md:grid-cols-2 gap-3">
         <label className="grid gap-1 text-sm">
@@ -817,11 +959,9 @@ useEffect(() => {
       <div className="mt-2 border rounded-2xl p-3 bg-slate-50">
         <div className="font-semibold mb-2">Ringkasan</div>
         <div className="space-y-1 text-sm">
-          {items.map((it) => (
+          {safeItems.map((it) => (
             <div key={it.id} className="flex justify-between">
-              <span>
-                {it.name} x{it.qty}
-              </span>
+              <span>{it.name} x{it.qty}</span>
               <span>{toIDR(it.price * it.qty)}</span>
             </div>
           ))}
@@ -840,24 +980,38 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Tombol WA tetap, tapi ikut validasi area */}
-      <div className="flex flex-col sm:flex-row gap-2 mt-1">
-        <a
-          href={waLink}
-          target="_blank"
-          rel="noreferrer"
-          aria-disabled={!canSubmit}
-          className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${
-            !canSubmit ? "opacity-50 pointer-events-none" : ""
-          }`}
-        >
-          Pesan via WhatsApp
-        </a>
-      </div>
+           {/* ====== Tombol WA ====== */}
+<div className="flex flex-col sm:flex-row gap-2 mt-1">
+  <a
+    href={waLink}
+    target="_blank"
+    rel="noreferrer"
+    aria-disabled={!canSubmit}
+    className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${
+      !canSubmit ? "opacity-50 pointer-events-none" : ""
+    }`}
+    onClick={onSubmit}
+  >
+    Pesan via WhatsApp
+  </a>
+</div>
 
-      <div className="text-xs text-slate-500">
-        *Tombol WhatsApp akan membuka chat dengan format pesanan otomatis. Layanan saat ini khusus Kecamatan Ambarawa.
-      </div>
-    </div>
-  );
-}
+<div className="text-xs text-slate-500">
+  *Tombol WhatsApp akan membuka chat dengan format pesanan otomatis. Layanan saat ini khusus Kecamatan Ambarawa.
+</div>
+
+{/* Modal MapPicker muncul saat mapOpen = true */}
+{mapOpen && (
+  <MapPicker
+    initial={
+      addrMeta?.lat != null && addrMeta?.lng != null
+        ? { lat: addrMeta.lat, lng: addrMeta.lng }
+        : { lat: AMBARAWA_CENTER.lat, lng: AMBARAWA_CENTER.lng }
+    }
+    onCancel={() => setMapOpen(false)}
+    onConfirm={onPickFromMap}
+  />
+)}
+</div>  
+);       
+}        
