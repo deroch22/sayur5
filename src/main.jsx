@@ -15,6 +15,9 @@ if (ENABLE_ADMIN) {
   LazyAdmin = React.lazy(() => import("./AdminPanel.jsx"));
 }
 
+console.log("React version:", React?.version, "React object:", React);
+
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <ErrorBoundary>
