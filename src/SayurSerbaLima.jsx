@@ -20,6 +20,81 @@ import { readJSON, writeJSON, readStr, writeStr } from "@/utils/safe";
 
 
 /* ===== Helpers ===== */
+// === ONGKIR dari titik toko (tanpa GPS & tanpa map) =========================
+const STORE = { lat: -7.259527, lng: 110.403026 };   // titik toko kamu
+const SERVICE_RADIUS_KM = 7;                          // radius layanan (atur suka2)
+
+// Bias geocode ke area Ambarawa (Nominatim)
+const AMBARAWA_BBOX = { left: 110.30, right: 110.50, top: -7.23, bottom: -7.31 };
+
+// Opsi kelurahan (boleh tambah)
+const KEL_OPTIONS = ["Lodoyong", "Panjang", "Baran", "Tambakboyo", "Ngampin", "Kupang", "Bejalen"];
+
+// Util math jarak
+function toRad(d){ return (d * Math.PI) / 180; }
+function haversineKm(lat1, lon1, lat2, lon2){
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Izinkan input "lat, lng" langsung (opsional)
+function parseLatLng(s) {
+  const m = String(s).trim().match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  const lat = +m[1], lng = +m[2];
+  return (Number.isFinite(lat) && Number.isFinite(lng)) ? { lat, lng } : null;
+}
+
+// Rapikan alamat agar geocode lebih akurat
+function normalizeAddress(raw) {
+  let s = String(raw || "");
+  s = s.replace(/\b(rt|rw)\s*[\.:]?\s*\d+(?:\s*\/\s*\d+)?/gi, ""); // hapus RT/RW
+  s = s.replace(/\bKel\.\b/gi, "Kelurahan ").replace(/\bKec\.\b/gi, "Kecamatan ").replace(/\bKab\.\b/gi, "Kabupaten ");
+  return s.replace(/\s{2,}/g, " ").trim();
+}
+
+// Geocode alamat → lat/lng (Nominatim; gratis, untuk trafik kecil)
+async function geocodeAddressOSM(q) {
+  const url = new URL("https://nominatim.openstreetmap.org/search");
+  url.searchParams.set("format","jsonv2");
+  url.searchParams.set("limit","1");
+  url.searchParams.set("countrycodes","id");
+  url.searchParams.set("addressdetails","1");
+  url.searchParams.set("accept-language","id");
+  url.searchParams.set("bounded","1");
+  url.searchParams.set("viewbox", `${AMBARAWA_BBOX.left},${AMBARAWA_BBOX.top},${AMBARAWA_BBOX.right},${AMBARAWA_BBOX.bottom}`);
+  url.searchParams.set("q", q);
+
+  const res = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+  if (!res.ok) return null;
+  const arr = await res.json();
+  if (!Array.isArray(arr) || !arr[0]) return null;
+  return { lat: +arr[0].lat, lng: +arr[0].lon, display_name: arr[0].display_name };
+}
+
+// Aturan ongkir
+const SHIPPING_RULES = {
+  FREE_MIN: 30000, // gratis ongkir ≥ ini
+  BASE: 5000,      // biaya dasar (termasuk jarak awal)
+  INCLUDED_KM: 2,  // km awal yang termasuk BASE
+  PER_KM: 2000,    // biaya per km setelah INCLUDED_KM
+  CAP: 20000,      // plafon ongkir
+};
+
+function calcOngkirFromStore(subtotal, lat, lng) {
+  if (subtotal >= SHIPPING_RULES.FREE_MIN) return 0;
+  if (!(Number.isFinite(lat) && Number.isFinite(lng))) return null;
+  let d = haversineKm(STORE.lat, STORE.lng, lat, lng);
+  d = Math.ceil(d * 10) / 10;             // bulatkan 0.1 km
+  const extra = Math.max(0, d - SHIPPING_RULES.INCLUDED_KM);
+  const fee = SHIPPING_RULES.BASE + Math.ceil(extra) * SHIPPING_RULES.PER_KM;
+  return Math.min(fee, SHIPPING_RULES.CAP);
+}
+
+const to6 = (n) => Number(n).toFixed(6);
+
 
 const DEFAULT_BASE_PRICE = 5000;
 
@@ -525,353 +600,146 @@ useEffect(() => {
 }
 
 /* ===== Subcomponents ===== */
-function CartButton({ totalQty, onOpen }) {
-  return (
-    <Button className="rounded-2xl" variant="default" onClick={onOpen}>
-      <ShoppingCart className="w-4 h-4 mr-2" />
-      Keranjang
-      {totalQty > 0 && (
-        <span className="ml-2 text-xs bg-emerald-600 text-white px-2 py-0.5 rounded-full">
-          {totalQty}
-        </span>
-      )}
-    </Button>
-  );
-}
-
-
-function CartDrawer({
-  open,
-  onClose,
-  items,
-  totalQty,
-  subtotal,
-  shippingFee,
-  grandTotal,
-  add,
-  sub,
-  clearCart,
-  onOpenCheckout,
-  freeOngkirMin,
-  ongkir,
-}) {
-  if (!open) return null;
-  const list = Array.isArray(items) ? items : [];
-
-  return (
-    <div className="fixed inset-0 z-[100]">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl border-l p-4 overflow-y-auto">
-        <div className="flex items-center justify-between mb-2">
-          <Button variant="ghost" size="sm" className="rounded-xl" onClick={onClose}>
-            <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
-          </Button>
-          <div className="text-sm text-slate-500">Item: {totalQty}</div>
-        </div>
-
-        <h3 className="text-lg font-semibold mb-3">Keranjang Belanja</h3>
-
-        <div className="space-y-4">
-          {list.length === 0 && (
-            <div className="text-sm text-slate-500">Keranjang kosong. Yuk pilih sayur dulu.</div>
-          )}
-
-          {list.map((it) => (
-            <Card key={it.id} className="rounded-2xl">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-xl">🥬</div>
-                <div className="flex-1">
-                  <div className="font-medium leading-tight">{it.name}</div>
-                  <div className="text-xs text-slate-500">{toIDR(it.price)} / pack</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button size="icon" variant="outline" className="rounded-full" onClick={() => sub(it.id)}>
-                    <Minus className="w-4 h-4" />
-                  </Button>
-                  <div className="w-8 text-center font-semibold">{it.qty}</div>
-                  <Button size="icon" className="rounded-full" onClick={() => add(it.id)}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="w-20 text-right font-semibold">{toIDR(it.price * it.qty)}</div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        <div className="mt-6 border-t pt-4 space-y-1 text-sm">
-          <div className="flex justify-between"><span>Subtotal</span><span>{toIDR(subtotal)}</span></div>
-          <div className="flex justify-between"><span>Ongkir</span><span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span></div>
-          <div className="flex justify-between font-bold text-base"><span>Total</span><span>{toIDR(grandTotal)}</span></div>
-        </div>
-
-        <div className="mt-4 flex gap-2">
-          <Button className="flex-1 rounded-2xl" disabled={list.length === 0}
-            onClick={() => { onClose(); onOpenCheckout(); }}>
-            <CreditCard className="w-4 h-4 mr-2" /> Checkout
-          </Button>
-          <Button variant="ghost" className="rounded-2xl" onClick={clearCart} disabled={list.length === 0}>
-            <X className="w-4 h-4 mr-2" /> Kosongkan
-          </Button>
-        </div>
-
-        <div className="mt-8 p-3 rounded-xl bg-slate-50 text-xs">
-          <div className="font-semibold mb-2">Ongkir Ditentukan Admin</div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="flex items-center justify-between"><span>Min Gratis Ongkir</span><span className="font-medium">{toIDR(freeOngkirMin)}</span></div>
-            <div className="flex items-center justify-between"><span>Biaya Ongkir</span><span className="font-medium">{toIDR(ongkir)}</span></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-// === Helpers (boleh taruh di utils) =========================================
-
-// Konfigurasi area layanan: tinggal tambah cabang baru di sini
-const BRANCHES = [
-  { id: "ambarawa", label: "Kecamatan Ambarawa", lat: -7.267, lng: 110.400, radiusKm: 6.5 },
-  // contoh cabang lain:
-  // { id: "banyubiru", label: "Kecamatan Banyubiru", lat: -7.283, lng: 110.433, radiusKm: 6 }
-];
-
-function toRad(d) { return (d * Math.PI) / 180; }
-function haversineKm(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-function whichBranch(lat, lng) {
-  for (const b of BRANCHES) if (haversineKm(lat, lng, b.lat, b.lng) <= b.radiusKm) return b;
-  return null;
-}
-function isInsideBranches(lat, lng) {
-  const b = whichBranch(lat, lng);
-  return { allowed: !!b, branch: b };
-}
-
-// === Helpers (rename agar tidak bentrok) ===
-async function reverseGeocodeOSM(lat, lng) {
-  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1`;
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error("reverse-geocode-failed");
-  return await res.json();
-}
-
-function readJSONLocal(key, fallback = null) {
-  try {
-    const s = localStorage.getItem(key);
-    return s ? JSON.parse(s) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeJSONLocal(key, val) {
-  try {
-    localStorage.setItem(key, JSON.stringify(val));
-  } catch { /* ignore quota errors */ }
-}
-
-// Dapatkan posisi dengan akurasi baik, ada fallback
-function getPrecisePosition({ timeoutMs = 30000, targetAcc = 25 } = {}) {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error("no-geolocation"));
-      return;
-    }
-    let done = false;
-    const options = { enableHighAccuracy: true, maximumAge: 0, timeout: timeoutMs };
-
-    // gunakan watchPosition agar bisa “menunggu akurasi bagus”
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        if (done) return;
-        const acc = pos.coords.accuracy ?? 9999;
-        if (acc <= targetAcc) {
-          done = true;
-          navigator.geolocation.clearWatch(watchId);
-          resolve(pos);
-        }
-      },
-      (err) => {
-        if (done) return;
-        done = true;
-        navigator.geolocation.clearWatch(watchId);
-        reject(err);
-      },
-      options
-    );
-
-    // fallback: kalau sampai timeout belum “cukup akurat”, ambil sekali
-    setTimeout(() => {
-      if (done) return;
-      done = true;
-      navigator.geolocation.clearWatch(watchId);
-      navigator.geolocation.getCurrentPosition(resolve, reject, options);
-    }, timeoutMs);
-  });
-}
-
-// ============================================================================
-
 function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, storePhone }) {
-  // === state lama ===
-  const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    address: "",
-    payment: "cod",
-    note: "",
-  });
+  // === state dasar ===
+  const [form, setForm] = useState({ name: "", phone: "", address: "", payment: "cod", note: "" });
   const validPhone = isValidIndoPhone(form.phone);
 
-  // === state baru (share loc + batas layanan) ===
-  const [locating, setLocating] = useState(false);
+  // Alamat terstruktur
+  const [addrDetail, setAddrDetail] = useState("");   // Jalan/gang/nomor rumah (boleh tulis RT/RW)
+  const [kelurahan, setKelurahan] = useState("");     // pilih/ketik kelurahan
+  const [addrMeta, setAddrMeta] = useState(null);     // { lat, lng, allowed, geocode?, source }
   const [locError, setLocError] = useState("");
-  const [addrMeta, setAddrMeta] = useState(null); // { lat, lng, accuracy, allowed, branch?, geocode? }
- 
 
+  // Susun form.address (gabungan) untuk display & WA
+  useEffect(() => {
+    const parts = [];
+    if (addrDetail) parts.push(addrDetail);
+    if (kelurahan) parts.push(`Kel. ${kelurahan}`);
+    parts.push("Kecamatan Ambarawa", "Kabupaten Semarang", "Jawa Tengah", "Indonesia");
+    setForm(f => ({ ...f, address: parts.join(", ") }));
+  }, [addrDetail, kelurahan]);
 
-
-  // restore cache lokasi 15 menit terakhir
+  // Prefill dari cache (15 menit)
   useEffect(() => {
     const cached = readJSON("sayur5.locCache", null);
     if (cached && Date.now() - cached.ts < 15 * 60 * 1000) {
-      setForm((f) => ({ ...f, address: cached.text || f.address }));
+      setForm(f => ({ ...f, address: cached.text || f.address }));
       setAddrMeta(cached.meta || null);
     }
   }, []);
 
-  // hitung status area layanan
-  const inServiceArea = useMemo(() => {
-    if (addrMeta?.allowed === true) return true;
-    if (addrMeta?.allowed === false) return false;
-    // fallback berbasis teks kalau user ketik manual
-    const s = (form.address || "").toLowerCase();
-    return /ambarawa/.test(s); // sederhana: cukup mengandung kata "Ambarawa"
-  }, [addrMeta, form.address]);
+  // Auto-geocode TANPA GPS (debounce)
+  useEffect(() => {
+    setLocError("");
+    const detail = (addrDetail || "").trim();
+    const kel = (kelurahan || "").trim();
+    if (!detail && !kel) return;
 
-  // Link peta
-// URL Google Maps dari lat,lng (hasil Share Lokasi) atau fallback alamat
-const { mapsPinUrl, mapsNavUrl } = useMemo(() => {
-  let pin = "", nav = "";
-  if (addrMeta?.lat != null && addrMeta?.lng != null) {
-    const lat = to6(addrMeta.lat), lng = to6(addrMeta.lng);
-    // buka pin tepat di koordinat
-    pin = `https://maps.google.com/?q=${lat},${lng}`;
-    // langsung mode navigasi ke koordinat tsb
-    nav = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
-  } else {
-    const q = addrMeta?.geocode?.display_name || form.address || "";
-    if (q) {
-      pin = `https://maps.google.com/?q=${encodeURIComponent(q)}`;
-      nav = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}&travelmode=driving`;
+    // A) Jika user ketik "lat,lng" di detail — langsung pakai
+    const manual = parseLatLng(detail);
+    if (manual) {
+      const d = haversineKm(STORE.lat, STORE.lng, manual.lat, manual.lng);
+      const meta = { ...manual, source: "manual-latlng", allowed: d <= SERVICE_RADIUS_KM };
+      setAddrMeta(meta);
+      writeJSON("sayur5.locCache", { ts: Date.now(), text: form.address, meta });
+      return;
     }
-  }
-  return { mapsPinUrl: pin, mapsNavUrl: nav };
-}, [addrMeta, form.address]);
 
+    // B) Geocode alamat gabungan (debounce)
+    const id = setTimeout(async () => {
+      const niceDetail = normalizeAddress(detail);
+      const query = [
+        niceDetail,
+        kel ? `Kelurahan ${kel}` : "",
+        "Kecamatan Ambarawa",
+        "Kabupaten Semarang",
+        "Jawa Tengah",
+        "Indonesia",
+      ].filter(Boolean).join(", ");
 
+      // Hindari spam geocode kalau terlalu pendek
+      if (query.replace(/[, ]/g, "").length < 12) return;
 
-  // Items aman
+      try {
+        const g = await geocodeAddressOSM(query);
+        if (!g) return;
+        const d = haversineKm(STORE.lat, STORE.lng, g.lat, g.lng);
+        const meta = { lat: g.lat, lng: g.lng, source: "geocode", geocode: g, allowed: d <= SERVICE_RADIUS_KM };
+        setAddrMeta(meta);
+        writeJSON("sayur5.locCache", { ts: Date.now(), text: g.display_name || form.address, meta });
+        if (!meta.allowed) setLocError("Maaf, titik alamat di luar area layanan.");
+      } catch {
+        setLocError("Gagal membaca alamat. Coba perjelas: nama jalan + kelurahan.");
+      }
+    }, 700);
+
+    return () => clearTimeout(id);
+    // pakai addrDetail/kelurahan sebagai trigger; form.address disusun otomatis
+  }, [addrDetail, kelurahan]);
+
+  // Derived
   const safeItems = Array.isArray(items) ? items : [];
 
-  // tombol aktif jika valid semua + dalam area
-  const canSubmit = Boolean(
-    form.name && validPhone && form.address && safeItems.length > 0 && inServiceArea
-  );
-  const canConfirm = canSubmit; // kompat lama
+  const distKm = useMemo(() => {
+    if (!addrMeta?.lat || !addrMeta?.lng) return null;
+    return haversineKm(STORE.lat, STORE.lng, addrMeta.lat, addrMeta.lng);
+  }, [addrMeta]);
 
-  // === Share Location ===
-  async function useMyLocation() {
-    setLocError("");
-    setLocating(true);
-    try {
-      const posRaw = await getPrecisePosition({ timeoutMs: 20000, targetAcc: 25 });
-      const pos = {
-        lat: posRaw.coords.latitude,
-        lng: posRaw.coords.longitude,
-        accuracy: posRaw.coords.accuracy,
-        heading: posRaw.coords.heading,
-        speed: posRaw.coords.speed,
+  const estShipping = useMemo(() => {
+    const v = calcOngkirFromStore(subtotal, addrMeta?.lat, addrMeta?.lng);
+    return v == null ? shippingFee : v;   // sementara pakai ongkir lama jika belum ada titik
+  }, [subtotal, addrMeta, shippingFee]);
+
+  const localTotal = useMemo(() => subtotal + estShipping, [subtotal, estShipping]);
+
+  const inServiceArea = addrMeta?.allowed === true || /ambarawa/i.test(form.address || "");
+  const canSubmit = Boolean(form.name && validPhone && form.address && safeItems.length > 0 && inServiceArea);
+
+  // Link Maps
+  const { mapsPinUrl, mapsNavUrl } = useMemo(() => {
+    if (addrMeta?.lat && addrMeta?.lng) {
+      const lat = to6(addrMeta.lat), lng = to6(addrMeta.lng);
+      return {
+        mapsPinUrl: `https://maps.google.com/?q=${lat},${lng}`,
+        mapsNavUrl: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`,
       };
-
-      const { allowed, branch } = isInsideBranches(pos.lat, pos.lng);
-      let addressText = "";
-      const meta = { ...pos, allowed, branch, source: "geolocation" };
-
-      // Reverse geocode opsional
-      try {
-        const g = await reverseGeocode(pos.lat, pos.lng);
-        addressText = g.display_name || "";
-        meta.geocode = g;
-      } catch {
-        /* boleh diabaikan */
-      }
-
-      // cache 15 menit
-      writeJSON("sayur5.locCache", { ts: Date.now(), text: addressText, meta });
-
-      setForm((f) => ({ ...f, address: addressText || f.address }));
-      setAddrMeta(meta);
-
-      if (!allowed) {
-        setLocError("Maaf, alamat di luar area layanan kami.");
-      }
-    } catch (e) {
-      // beri pesan sesuai kode error kalau ada
-      if (e?.code === 1) setLocError("Izin lokasi ditolak. Izinkan akses lokasi di pengaturan browser.");
-      else if (e?.code === 2) setLocError("Lokasi tidak tersedia. Coba aktifkan GPS/High accuracy.");
-      else if (e?.code === 3) setLocError("Pengambilan lokasi timeout. Coba lagi, pindah dekat jendela/outdoor.");
-      else setLocError("Gagal ambil lokasi. Aktifkan GPS/izin lokasi lalu coba lagi.");
-    } finally {
-      setLocating(false);
     }
-  }
+    return { mapsPinUrl: "", mapsNavUrl: "" };
+  }, [addrMeta]);
 
-  // === teks pesanan & link WA ===
+  // Teks WA
   const orderText = useMemo(() => {
-  const lines = [
-    `Pesanan Sayur5`,
-    `Nama: ${form.name}`,
-    `Telp: ${form.phone}`,
-    mapsPinUrl ? `Pin Lokasi (klik): ${mapsPinUrl}` : "",
-    mapsNavUrl ? `Navigasi: ${mapsNavUrl}` : "",
-    `Alamat: ${form.address}`,
-    `Koordinat: ${addrMeta?.lat != null && addrMeta?.lng != null ? to6(addrMeta.lat)+", "+to6(addrMeta.lng) : "-"}`,
-    `Metode Bayar: ${form.payment.toUpperCase()}`,
-    `Rincian:`,
-    ...items.map((it) => `- ${it.name} x${it.qty} @${toIDR(it.price)} = ${toIDR(it.price * it.qty)}`),
-    `Subtotal: ${toIDR(subtotal)}`,
-    `Ongkir: ${shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}`,
-    `Total: ${toIDR(grandTotal)}`,
-    form.note ? `Catatan: ${form.note}` : "",
-  ].filter(Boolean);
-  return encodeURIComponent(lines.join("\n"));
-}, [form, items, subtotal, shippingFee, grandTotal, mapsPinUrl, mapsNavUrl, addrMeta]);
-
+    const lines = [
+      `Pesanan Sayur5`,
+      `Nama: ${form.name}`,
+      `Telp: ${form.phone}`,
+      mapsPinUrl ? `Pin Lokasi (klik): ${mapsPinUrl}` : "",
+      mapsNavUrl ? `Navigasi: ${mapsNavUrl}` : "",
+      `Alamat: ${form.address}`,
+      typeof distKm === "number" ? `Jarak ≈ ${distKm.toFixed(1)} km` : "",
+      `Metode Bayar: ${form.payment.toUpperCase()}`,
+      `Rincian:`,
+      ...safeItems.map((it) => `- ${it.name} x${it.qty} @${toIDR(it.price)} = ${toIDR(it.price * it.qty)}`),
+      `Subtotal: ${toIDR(subtotal)}`,
+      `Ongkir (estimasi): ${estShipping === 0 ? "Gratis" : toIDR(estShipping)}`,
+      `Total (estimasi): ${toIDR(localTotal)}`,
+      form.note ? `Catatan: ${form.note}` : "",
+    ].filter(Boolean);
+    return encodeURIComponent(lines.join("\n"));
+  }, [form, safeItems, subtotal, estShipping, localTotal, mapsPinUrl, mapsNavUrl, distKm]);
 
   const waLink = `https://wa.me/${toWA(storePhone)}?text=${orderText}`;
 
+  // === UI ===
   return (
     <div className="grid gap-3">
       <div className="grid md:grid-cols-2 gap-3">
         <label className="grid gap-1 text-sm">
           <span>Nama Penerima</span>
-          <Input
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Nama lengkap"
-            className="rounded-xl"
-          />
+          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nama lengkap" className="rounded-xl" />
         </label>
+
         <label className="grid gap-1 text-sm">
           <span>No. HP</span>
           <Input
@@ -880,60 +748,62 @@ const { mapsPinUrl, mapsNavUrl } = useMemo(() => {
             placeholder="08xxxxxxxxxx"
             className={`rounded-xl ${form.phone && !validPhone ? "border-red-500" : ""}`}
           />
-          {form.phone && !validPhone && (
-            <div className="text-xs text-red-600 mt-1">Nomor HP tidak valid. Contoh: 0812xxxxxxx</div>
-          )}
+          {form.phone && !validPhone && <div className="text-xs text-red-600 mt-1">Nomor HP tidak valid. Contoh: 0812xxxxxxx</div>}
         </label>
       </div>
 
-      {/* Alamat + tombol share-loc */}
+      {/* Alamat terstruktur */}
       <label className="grid gap-1 text-sm">
-  <div className="flex items-center justify-between">
-    <span>Alamat Lengkap</span>
-    <div className="flex items-center gap-2">
-      {/* HAPUS tombol 'Gunakan lokasi saya' */}
-      <button
-        type="button"
-        onClick={() => setMapOpen(true)}
-        className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
-      >
-        Pilih lewat peta
-      </button>
-    </div>
-  </div>
+        <span>Detail Alamat</span>
+        <Textarea
+          value={addrDetail}
+          onChange={(e) => setAddrDetail(e.target.value)}
+          placeholder="Jalan, gang, nomor rumah (boleh tulis 'lat,lng' dari Google Maps)"
+          className="rounded-xl"
+        />
+      </label>
 
-  <Textarea
-    value={form.address}
-    onChange={(e) => setForm({ ...form, address: e.target.value })}
-    placeholder="Jalan, RT/RW, Kel/Desa, Kecamatan, Kota"
-    className={`rounded-xl ${form.address && !inServiceArea ? "border-red-500" : ""}`}
-  />
-  {/* ... dst tetap */}
-</label>
-
-
-      <div className="grid md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <label className="grid gap-1 text-sm">
-          <span>Metode Pembayaran</span>
-          <select
+          <span>Kelurahan</span>
+          <input
+            list="kel-suggestions"
             className="border rounded-xl h-10 px-3"
-            value={form.payment}
-            onChange={(e) => setForm({ ...form, payment: e.target.value })}
-          >
-            <option value="cod">COD (Cash on Delivery)</option>
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span>Catatan</span>
-          <Input
-            value={form.note}
-            onChange={(e) => setForm({ ...form, note: e.target.value })}
-            placeholder="Contoh: tanpa cabe, kirim siang"
-            className="rounded-xl"
+            value={kelurahan}
+            onChange={(e) => setKelurahan(e.target.value)}
+            placeholder="cth: Lodoyong"
           />
+          <datalist id="kel-suggestions">
+            {KEL_OPTIONS.map(k => <option value={k} key={k} />)}
+          </datalist>
+        </label>
+
+        <label className="grid gap-1 text-sm">
+          <span>Kecamatan</span>
+          <Input className="rounded-xl bg-slate-50" value="Ambarawa" readOnly />
+        </label>
+
+        <label className="grid gap-1 text-sm">
+          <span>Kabupaten</span>
+          <Input className="rounded-xl bg-slate-50" value="Semarang" readOnly />
         </label>
       </div>
 
+      <label className="grid gap-1 text-sm">
+        <span>Provinsi</span>
+        <Input className="rounded-xl bg-slate-50" value="Jawa Tengah" readOnly />
+      </label>
+
+      {/* Info geocode/layanan */}
+      {!!locError && <div className="text-xs text-red-600 mt-1">{locError}</div>}
+      {addrMeta?.lat && addrMeta?.lng && typeof distKm === "number" && (
+        <div className="text-[11px] text-slate-600">Perkiraan jarak dari toko: ≈ {distKm.toFixed(1)} km</div>
+      )}
+      {form.address && !inServiceArea && (
+        <div className="text-xs text-red-600">Maaf, alamat di luar area layanan.</div>
+      )}
+
+      {/* Ringkasan */}
       <div className="mt-2 border rounded-2xl p-3 bg-slate-50">
         <div className="font-semibold mb-2">Ringkasan</div>
         <div className="space-y-1 text-sm">
@@ -948,48 +818,34 @@ const { mapsPinUrl, mapsNavUrl } = useMemo(() => {
             <span>{toIDR(subtotal)}</span>
           </div>
           <div className="flex justify-between">
-            <span>Ongkir</span>
-            <span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span>
+            <span>Ongkir{typeof distKm === "number" ? ` (≈ ${distKm.toFixed(1)} km)` : ""}</span>
+            <span>{estShipping === 0 ? "Gratis" : toIDR(estShipping)}</span>
           </div>
           <div className="flex justify-between font-bold text-base">
             <span>Total</span>
-            <span>{toIDR(grandTotal)}</span>
+            <span>{toIDR(localTotal)}</span>
           </div>
         </div>
       </div>
 
-           {/* ====== Tombol WA ====== */}
-<div className="flex flex-col sm:flex-row gap-2 mt-1">
-  <a
-    href={waLink}
-    target="_blank"
-    rel="noreferrer"
-    aria-disabled={!canSubmit}
-    className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${
-      !canSubmit ? "opacity-50 pointer-events-none" : ""
-    }`}
-    onClick={onSubmit}
-  >
-    Pesan via WhatsApp
-  </a>
-</div>
+      {/* Tombol WA */}
+      <div className="flex flex-col sm:flex-row gap-2 mt-1">
+        <a
+          href={waLink}
+          target="_blank"
+          rel="noreferrer"
+          aria-disabled={!canSubmit}
+          className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${!canSubmit ? "opacity-50 pointer-events-none" : ""}`}
+          onClick={onSubmit}
+        >
+          Pesan via WhatsApp
+        </a>
+      </div>
 
-<div className="text-xs text-slate-500">
-  *Tombol WhatsApp akan membuka chat dengan format pesanan otomatis. Layanan saat ini khusus Kecamatan Ambarawa.
-</div>
+      <div className="text-xs text-slate-500">
+        *Tombol WhatsApp akan membuka chat dengan format pesanan otomatis. Layanan saat ini khusus area Ambarawa.
+      </div>
+    </div>
+  );
+}
 
-{/* Modal MapPicker muncul saat mapOpen = true */}
-{mapOpen && (
-  <MapPicker
-    initial={
-      addrMeta?.lat != null && addrMeta?.lng != null
-        ? { lat: addrMeta.lat, lng: addrMeta.lng }
-        : { lat: AMBARAWA_CENTER.lat, lng: AMBARAWA_CENTER.lng }
-    }
-    onCancel={() => setMapOpen(false)}
-    onConfirm={onPickFromMap}
-  />
-)}
-</div>  
-);       
-}        
