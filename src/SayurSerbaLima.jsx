@@ -64,18 +64,6 @@ const KEL_OPTIONS = [
 ];
 
 
-
-
-
-// Math jarak
-function toRad(d) { return (d * Math.PI) / 180; }
-function haversineKm(aLat, aLng, bLat, bLng) {
-  const R = 6371;
-  const dLat = toRad(bLat - aLat), dLng = toRad(bLng - aLng);
-  const A = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(A), Math.sqrt(1 - A));
-}
-
 // Izinkan input "lat,lng"
 function parseLatLng(s) {
   const m = String(s || "").trim().match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
@@ -108,17 +96,6 @@ async function geocodeAddressOSM(q) {
   const arr = await res.json();
   if (!Array.isArray(arr) || !arr[0]) return null;
   return { lat: +arr[0].lat, lng: +arr[0].lon, display_name: arr[0].display_name };
-}
-
-// Hitung ongkir dari STORE → dest
-function calcOngkirFromStore(subtotal, lat, lng) {
-  if (subtotal >= SHIPPING.FREE_MIN) return 0;
-  if (!(Number.isFinite(lat) && Number.isFinite(lng))) return null;
-  let d = haversineKm(STORE.lat, STORE.lng, lat, lng);
-  d = Math.ceil(d * 10) / 10;                  // bulatkan 0.1 km
-  const extra = Math.max(0, d - SHIPPING.INCLUDED_KM);
-  const fee = SHIPPING.BASE + Math.ceil(extra) * SHIPPING.PER_KM;
-  return Math.min(fee, SHIPPING.CAP);
 }
 
 const to6 = (n) => Number(n).toFixed(6);
