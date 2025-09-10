@@ -588,7 +588,6 @@ useEffect(() => {
             grandTotal={grandTotal}
             onSubmit={(payload) => {
               createOrder(payload);
-              alert("Pesanan dicatat! Admin akan menghubungi via WhatsApp.");
               closeCheckoutHandler();
             }}
             storePhone={storePhone}
@@ -859,6 +858,34 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
 
   const waLink = `https://wa.me/${toWA(storePhone)}?text=${orderText}`;
 
+// === Handler klik WhatsApp ===
+const handleWhatsAppClick = (e) => {
+  if (!canSubmit) { 
+    e.preventDefault(); 
+    return; 
+  }
+
+  // 1) Buka WA dulu (masih dalam user-gesture)
+  const win = window.open(waLink, "_blank");
+  if (!win) {
+    // fallback kalau popup diblok
+    window.location.href = waLink;
+  }
+
+  // cegah default anchor untuk menghindari race
+  e.preventDefault();
+
+  // 2) Baru catat pesanan di app kamu
+  onSubmit?.({
+    name: form.name,
+    phone: form.phone,
+    address: form.address,
+    payment: form.payment,
+    note: form.note,
+    addrMeta, // kirim meta lokasi jika ada
+  });
+};
+
   // === UI ===
   return (
     <div className="grid gap-3">
@@ -964,10 +991,11 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
           rel="noreferrer"
           aria-disabled={!canSubmit}
           className={`inline-flex items-center justify-center rounded-2xl h-11 px-4 font-medium bg-emerald-600 text-white ${!canSubmit ? "opacity-50 pointer-events-none" : ""}`}
-          onClick={onSubmit}
+          onClick={handleWhatsAppClick}
         >
           Pesan via WhatsApp
         </a>
+
       </div>
 
       <div className="text-xs text-slate-500">
