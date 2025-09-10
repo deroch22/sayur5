@@ -4,7 +4,7 @@ import ReactDOM from "react-dom/client";
 import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import "./index.css";
-import "leaflet/dist/leaflet.css";
+
 
 // Halaman utama
 const Main = React.lazy(() => import("./SayurSerbaLima.jsx"));
