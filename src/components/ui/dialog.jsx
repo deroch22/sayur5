@@ -1,18 +1,20 @@
-import React, { useEffect } from 'react'
-export const Dialog = ({ open, onOpenChange, children }) => {
-  useEffect(() => {
-    const onEsc = (e)=>{ if(e.key==='Escape' && open){ onOpenChange?.(false) } }
-    window.addEventListener('keydown', onEsc); return ()=>window.removeEventListener('keydown', onEsc);
-  }, [open, onOpenChange])
-  if(!open) return null
-  return (
-    <div className="fixed inset-0 z-50 ui-overlay flex items-center justify-center p-4" onMouseDown={()=>onOpenChange?.(false)}>
-      <div className="relative" onMouseDown={(e)=>e.stopPropagation()}>{children}</div>
-    </div>
-  )
+export function Dialog({ open, children }) {
+  if (!open) return null;
+  return <>{children}</>;
 }
-export const DialogContent = ({ className='', style, children }) => (
-  <div className={`bg-white rounded-xl shadow-xl border ${className}`} style={style}>{children}</div>
-)
-export const DialogHeader = ({ children }) => <div className="p-4 border-b">{children}</div>
-export const DialogTitle = ({ children, className='' }) => <div className={`text-lg font-semibold ${className}`}>{children}</div>
+export function DialogContent({ className = "", children }) {
+  return (
+    <div className="fixed inset-0 z-[100]">
+      <div className="absolute inset-0 bg-black/40" />
+      <div className={["relative mx-auto mt-10 max-w-lg bg-white rounded-2xl shadow-lg", className].join(" ")}>
+        {children}
+      </div>
+    </div>
+  );
+}
+export function DialogHeader({ className = "", ...props }) {
+  return <div className={["p-4", className].join(" ")} {...props} />;
+}
+export function DialogTitle({ className = "", ...props }) {
+  return <div className={["text-lg font-semibold", className].join(" ")} {...props} />;
+}

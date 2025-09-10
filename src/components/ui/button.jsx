@@ -1,7 +1,36 @@
-import React from 'react'
-const base = "inline-flex items-center justify-center px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring disabled:opacity-50 disabled:pointer-events-none rounded-md"
-const variants = { default: "bg-emerald-600 text-white hover:bg-emerald-700", secondary: "bg-emerald-100 text-emerald-800 hover:bg-emerald-200", outline: "border border-slate-300 hover:bg-slate-50", ghost: "hover:bg-slate-100" }
-const sizes = { default: "h-10", icon: "h-10 w-10 p-0", sm: "h-9", lg: "h-11 text-base" }
-export const Button = React.forwardRef(({ className="", variant="default", size="default", ...props }, ref) => (
-  <button ref={ref} className={`${base} ${variants[variant]||variants.default} ${sizes[size]||sizes.default} ${className}`} {...props} />
-))
+import * as React from "react";
+
+const variants = {
+  default: "bg-emerald-600 text-white hover:bg-emerald-700",
+  outline: "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
+  ghost: "bg-transparent hover:bg-slate-100",
+  secondary: "bg-slate-800 text-white hover:bg-slate-900",
+};
+
+const sizes = {
+  default: "h-10 px-4",
+  sm: "h-9 px-3 text-sm",
+  lg: "h-11 px-5",
+  icon: "h-10 w-10 p-0",
+};
+
+export function Button({
+  className = "",
+  variant = "default",
+  size = "default",
+  ...props
+}) {
+  return (
+    <button
+      className={[
+        "inline-flex items-center justify-center rounded-md font-medium",
+        "transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2",
+        "disabled:opacity-50 disabled:pointer-events-none",
+        variants[variant] || variants.default,
+        sizes[size] || sizes.default,
+        className,
+      ].join(" ")}
+      {...props}
+    />
+  );
+}
