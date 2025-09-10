@@ -25,14 +25,47 @@ const STORE = { lat: -7.259527, lng: 110.403026 };
 // Radius layanan kasar (untuk warning)
 const SERVICE_RADIUS_KM = 7;
 
+// Ongkir rules
+const SHIPPING = { FREE_MIN: 50000, BASE: 7000, INCLUDED_KM: 2, PER_KM: 2500, CAP: 25000 };
+
+function toRad(d){ return (d * Math.PI) / 180; }
+function haversineKm(lat1, lon1, lat2, lon2){
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function calcOngkirFromStore(subtotal, lat, lng) {
+  if (subtotal >= SHIPPING.FREE_MIN) return 0;
+  if (!(Number.isFinite(lat) && Number.isFinite(lng))) return null;
+  let d = haversineKm(STORE.lat, STORE.lng, lat, lng);
+  d = Math.ceil(d * 10) / 10; // bulatkan 0.1 km
+  const extra = Math.max(0, d - SHIPPING.INCLUDED_KM);
+  const fee = SHIPPING.BASE + Math.ceil(extra) * SHIPPING.PER_KM;
+  return Math.min(fee, SHIPPING.CAP);
+}
+
 // Bias geocode ke area Ambarawa (optional)
 const AMBARAWA_BBOX = { left: 110.30, right: 110.50, top: -7.23, bottom: -7.31 };
 
 // Saran kelurahan
-const KEL_OPTIONS = ["Lodoyong", "Panjang", "Baran", "Tambakboyo", "Ngampin", "Kupang", "Bejalen"];
+const KEL_OPTIONS = [
+  "Baran",
+  "Kranggan",
+  "Kupang",
+  "Lodoyong",
+  "Ngampin",
+  "Panjang",
+  "Pasekan",
+  "Pojoksari",
+  "Tambakboyo",
+  "Bejalen",
+];
 
-// Ongkir rules
-const SHIPPING = { FREE_MIN: 30000, BASE: 5000, INCLUDED_KM: 2, PER_KM: 2000, CAP: 20000 };
+
+
+
 
 // Math jarak
 function toRad(d) { return (d * Math.PI) / 180; }
@@ -657,7 +690,7 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
         const meta = { lat: g.lat, lng: g.lng, source: "geocode", geocode: g, allowed: d <= SERVICE_RADIUS_KM };
         setAddrMeta(meta);
         writeJSON("sayur5.locCache", { ts: Date.now(), text: g.display_name || form.address, meta });
-        if (!meta.allowed) setLocError("Maaf, titik alamat di luar area layanan.");
+        // Tidak perlu peringatan di UI; tetap hitung ongkir berdasar jarak
       } catch {
         setLocError("Gagal membaca alamat. Coba perjelas: nama jalan + kelurahan.");
       }
@@ -679,8 +712,7 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
   }, [subtotal, addrMeta, shippingFee]);
 
   const localTotal = useMemo(() => subtotal + estShipping, [subtotal, estShipping]);
-  const inServiceArea = addrMeta?.allowed === true || /ambarawa/i.test(form.address || "");
-  const canSubmit = Boolean(form.name && validPhone && form.address && safeItems.length > 0 && inServiceArea);
+  const canSubmit = Boolean(form.name && validPhone && form.address && safeItems.length > 0);
 
   // WA text
   const { mapsPinUrl, mapsNavUrl } = useMemo(() => {
@@ -786,9 +818,6 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
       {!!locError && <div className="text-xs text-red-600 mt-1">{locError}</div>}
       {addrMeta?.lat && addrMeta?.lng && typeof distKm === "number" && (
         <div className="text-[11px] text-slate-600">Perkiraan jarak dari toko: ≈ {distKm.toFixed(1)} km</div>
-      )}
-      {form.address && !(addrMeta?.allowed) && (
-        <div className="text-xs text-red-600">Maaf, alamat di luar area layanan.</div>
       )}
 
       <div className="mt-2 border rounded-2xl p-3 bg-slate-50">
