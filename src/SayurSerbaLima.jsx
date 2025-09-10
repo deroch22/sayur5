@@ -600,6 +600,21 @@ useEffect(() => {
 }
 
 /* ===== Subcomponents ===== */
+function CartButton({ totalQty = 0, onOpen }) {
+  return (
+    <Button className="rounded-2xl" variant="default" onClick={onOpen}>
+      <ShoppingCart className="w-4 h-4 mr-2" />
+      Keranjang
+      {totalQty > 0 && (
+        <span className="ml-2 text-xs bg-emerald-600 text-white px-2 py-0.5 rounded-full">
+          {totalQty}
+        </span>
+      )}
+    </Button>
+  );
+}
+
+
 function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, storePhone }) {
   // === state dasar ===
   const [form, setForm] = useState({ name: "", phone: "", address: "", payment: "cod", note: "" });
