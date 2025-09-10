@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { imgSrc } from "@/utils/img";
 import { readJSON, writeJSON, readStr, writeStr } from "@/utils/safe";
+import { CreditCard, ArrowLeft, X, Plus, Minus } from "lucide-react";
 
 
 
@@ -600,6 +601,116 @@ useEffect(() => {
 }
 
 /* ===== Subcomponents ===== */
+function CartDrawer({
+  open,
+  onClose,
+  items,
+  totalQty,
+  subtotal,
+  shippingFee,
+  grandTotal,
+  add,
+  sub,
+  clearCart,
+  onOpenCheckout,
+  freeOngkirMin,
+  ongkir,
+}) {
+  if (!open) return null;
+  const list = Array.isArray(items) ? items : [];
+
+  return (
+    <div className="fixed inset-0 z-[100]">
+      {/* backdrop */}
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+
+      {/* panel kanan */}
+      <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl border-l p-4 overflow-y-auto">
+        {/* header */}
+        <div className="flex items-center justify-between mb-2">
+          <Button variant="ghost" size="sm" className="rounded-xl" onClick={onClose}>
+            <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
+          </Button>
+          <div className="text-sm text-slate-500">Item: {totalQty}</div>
+        </div>
+
+        <h3 className="text-lg font-semibold mb-3">Keranjang Belanja</h3>
+
+        {/* list item */}
+        <div className="space-y-4">
+          {list.length === 0 && (
+            <div className="text-sm text-slate-500">Keranjang kosong. Yuk pilih sayur dulu.</div>
+          )}
+
+          {list.map((it) => (
+            <Card key={it.id} className="rounded-2xl">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-xl">🥬</div>
+                <div className="flex-1">
+                  <div className="font-medium leading-tight">{it.name}</div>
+                  <div className="text-xs text-slate-500">{toIDR(it.price)} / pack</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="icon" variant="outline" className="rounded-full" onClick={() => sub(it.id)}>
+                    <Minus className="w-4 h-4" />
+                  </Button>
+                  <div className="w-8 text-center font-semibold">{it.qty}</div>
+                  <Button size="icon" className="rounded-full" onClick={() => add(it.id)}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="w-20 text-right font-semibold">{toIDR(it.price * it.qty)}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* ringkasan */}
+        <div className="mt-6 border-t pt-4 space-y-1 text-sm">
+          <div className="flex justify-between">
+            <span>Subtotal</span><span>{toIDR(subtotal)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Ongkir</span><span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span>
+          </div>
+          <div className="flex justify-between font-bold text-base">
+            <span>Total</span><span>{toIDR(grandTotal)}</span>
+          </div>
+        </div>
+
+        {/* aksi */}
+        <div className="mt-4 flex gap-2">
+          <Button
+            className="flex-1 rounded-2xl"
+            disabled={list.length === 0}
+            onClick={() => { onClose(); onOpenCheckout(); }}
+          >
+            <CreditCard className="w-4 h-4 mr-2" /> Checkout
+          </Button>
+          <Button variant="ghost" className="rounded-2xl" onClick={clearCart} disabled={list.length === 0}>
+            <X className="w-4 h-4 mr-2" /> Kosongkan
+          </Button>
+        </div>
+
+        {/* info aturan ongkir */}
+        <div className="mt-8 p-3 rounded-xl bg-slate-50 text-xs">
+          <div className="font-semibold mb-2">Ongkir Ditentukan Admin</div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex items-center justify-between">
+              <span>Min Gratis Ongkir</span><span className="font-medium">{toIDR(freeOngkirMin)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Biaya Ongkir</span><span className="font-medium">{toIDR(ongkir)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
 function CartButton({ totalQty = 0, onOpen }) {
   return (
     <Button className="rounded-2xl" variant="default" onClick={onOpen}>
