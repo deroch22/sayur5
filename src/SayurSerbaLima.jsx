@@ -1,75 +1,75 @@
+// src/SayurSerbaLima.jsx
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ShoppingCart, Leaf, Search, Truck, BadgePercent, Phone, MapPin,
-  CreditCard, ArrowLeft, X, Plus, Minus, Loader2
+  ShoppingCart, Leaf, Search, Truck, BadgePercent, Phone,
+  CreditCard, ArrowLeft, X, Plus, Minus,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
 import { imgSrc } from "@/utils/img";
 import { readJSON, writeJSON, readStr, writeStr } from "@/utils/safe";
 
+/* =============================================================================
+   Helpers (tanpa GPS/Map)
+============================================================================= */
+// Titik toko (pusat ongkir)
+const STORE = { lat: -7.259527, lng: 110.403026 };
 
+// Radius layanan kasar (untuk warning)
+const SERVICE_RADIUS_KM = 7;
 
-
-
-
-
-/* ===== Helpers ===== */
-// === ONGKIR dari titik toko (tanpa GPS & tanpa map) =========================
-const STORE = { lat: -7.259527, lng: 110.403026 };   // titik toko kamu
-const SERVICE_RADIUS_KM = 7;                          // radius layanan (atur suka2)
-
-// Bias geocode ke area Ambarawa (Nominatim)
+// Bias geocode ke area Ambarawa (optional)
 const AMBARAWA_BBOX = { left: 110.30, right: 110.50, top: -7.23, bottom: -7.31 };
 
-// Opsi kelurahan (boleh tambah)
+// Saran kelurahan
 const KEL_OPTIONS = ["Lodoyong", "Panjang", "Baran", "Tambakboyo", "Ngampin", "Kupang", "Bejalen"];
 
-// Util math jarak
-function toRad(d){ return (d * Math.PI) / 180; }
-function haversineKm(lat1, lon1, lat2, lon2){
+// Ongkir rules
+const SHIPPING = { FREE_MIN: 30000, BASE: 5000, INCLUDED_KM: 2, PER_KM: 2000, CAP: 20000 };
+
+// Math jarak
+function toRad(d) { return (d * Math.PI) / 180; }
+function haversineKm(aLat, aLng, bLat, bLng) {
   const R = 6371;
-  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const dLat = toRad(bLat - aLat), dLng = toRad(bLng - aLng);
+  const A = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(A), Math.sqrt(1 - A));
 }
 
-// Izinkan input "lat, lng" langsung (opsional)
+// Izinkan input "lat,lng"
 function parseLatLng(s) {
-  const m = String(s).trim().match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+  const m = String(s || "").trim().match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
   if (!m) return null;
   const lat = +m[1], lng = +m[2];
   return (Number.isFinite(lat) && Number.isFinite(lng)) ? { lat, lng } : null;
 }
 
-// Rapikan alamat agar geocode lebih akurat
+// Rapikan alamat supaya geocode lebih akurat
 function normalizeAddress(raw) {
   let s = String(raw || "");
   s = s.replace(/\b(rt|rw)\s*[\.:]?\s*\d+(?:\s*\/\s*\d+)?/gi, ""); // hapus RT/RW
-  s = s.replace(/\bKel\.\b/gi, "Kelurahan ").replace(/\bKec\.\b/gi, "Kecamatan ").replace(/\bKab\.\b/gi, "Kabupaten ");
+  s = s.replace(/\bKel\.\b/gi, "Kelurahan ").replace(/\bKec\.\b/gi, "Kecamatan ")
+       .replace(/\bKab\.\b/gi, "Kabupaten ");
   return s.replace(/\s{2,}/g, " ").trim();
 }
 
-// Geocode alamat → lat/lng (Nominatim; gratis, untuk trafik kecil)
+// Geocode OSM gratis (dibatasi supaya prefer Ambarawa)
 async function geocodeAddressOSM(q) {
   const url = new URL("https://nominatim.openstreetmap.org/search");
-  url.searchParams.set("format","jsonv2");
-  url.searchParams.set("limit","1");
-  url.searchParams.set("countrycodes","id");
-  url.searchParams.set("addressdetails","1");
-  url.searchParams.set("accept-language","id");
-  url.searchParams.set("bounded","1");
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("limit", "1");
+  url.searchParams.set("countrycodes", "id");
+  url.searchParams.set("accept-language", "id");
+  url.searchParams.set("bounded", "1");
   url.searchParams.set("viewbox", `${AMBARAWA_BBOX.left},${AMBARAWA_BBOX.top},${AMBARAWA_BBOX.right},${AMBARAWA_BBOX.bottom}`);
   url.searchParams.set("q", q);
-
   const res = await fetch(url.toString(), { headers: { Accept: "application/json" } });
   if (!res.ok) return null;
   const arr = await res.json();
@@ -77,35 +77,24 @@ async function geocodeAddressOSM(q) {
   return { lat: +arr[0].lat, lng: +arr[0].lon, display_name: arr[0].display_name };
 }
 
-// Aturan ongkir
-const SHIPPING_RULES = {
-  FREE_MIN: 30000, // gratis ongkir ≥ ini
-  BASE: 5000,      // biaya dasar (termasuk jarak awal)
-  INCLUDED_KM: 2,  // km awal yang termasuk BASE
-  PER_KM: 2000,    // biaya per km setelah INCLUDED_KM
-  CAP: 20000,      // plafon ongkir
-};
-
+// Hitung ongkir dari STORE → dest
 function calcOngkirFromStore(subtotal, lat, lng) {
-  if (subtotal >= SHIPPING_RULES.FREE_MIN) return 0;
+  if (subtotal >= SHIPPING.FREE_MIN) return 0;
   if (!(Number.isFinite(lat) && Number.isFinite(lng))) return null;
   let d = haversineKm(STORE.lat, STORE.lng, lat, lng);
-  d = Math.ceil(d * 10) / 10;             // bulatkan 0.1 km
-  const extra = Math.max(0, d - SHIPPING_RULES.INCLUDED_KM);
-  const fee = SHIPPING_RULES.BASE + Math.ceil(extra) * SHIPPING_RULES.PER_KM;
-  return Math.min(fee, SHIPPING_RULES.CAP);
+  d = Math.ceil(d * 10) / 10;                  // bulatkan 0.1 km
+  const extra = Math.max(0, d - SHIPPING.INCLUDED_KM);
+  const fee = SHIPPING.BASE + Math.ceil(extra) * SHIPPING.PER_KM;
+  return Math.min(fee, SHIPPING.CAP);
 }
 
 const to6 = (n) => Number(n).toFixed(6);
 
-
 const DEFAULT_BASE_PRICE = 5000;
-
 const toIDR = (n) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 })
     .format(Number.isFinite(n) ? n : 0);
 
-const DEFAULT_IMG = "img/default.jpg";
 const STARTER_PRODUCTS = [
   { id: "bayam", name: "Bayam Fresh", desc: "Dipetik pagi, siap masak bening.", stock: 50 },
   { id: "kangkung", name: "Kangkung", desc: "Crispy untuk cah bawang.", stock: 60 },
@@ -132,49 +121,20 @@ const isValidIndoPhone = (s) => {
   return /^0?8\d{8,12}$/.test(d) || /^62?8\d{8,12}$/.test(d);
 };
 
-/* ===== Component ===== */
+/* =============================================================================
+   App
+============================================================================= */
 export default function SayurSerbaLima() {
- // UI state
- const [query, setQuery] = useState("");
- // baca cart aman dari storage (fallback: objek kosong)
+  // UI state
+  const [query, setQuery] = useState("");
   const [cart, setCart] = useState(() => readJSON("sayur5.cart", {}));
-  const [searchOpen, setSearchOpen] = useState(false);
   const [openCheckout, setOpenCheckout] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
-  const openCart  = () => setCartOpen(true);
-  const closeCart = () => setCartOpen(false);
-// handler aman (dibagikan ke child)
-const openCheckoutHandler  = () => setOpenCheckout(true);
-const closeCheckoutHandler = () => setOpenCheckout(false);
-// ==== Search helpers ====
-const searchRef = useRef(null);
-const focusCatalog = (id) => {
-const el = document.getElementById(`prod-${id}`);
-const header = document.querySelector("header");
-const offset = (header?.getBoundingClientRect().height ?? 72) + 8;
-
-  if (el) {
-    const y = el.getBoundingClientRect().top + window.scrollY - offset;
-    window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
-    el.classList.add("ring-2", "ring-emerald-500", "rounded-xl");
-    setTimeout(() => el.classList.remove("ring-2", "ring-emerald-500", "rounded-xl"), 1200);
-  } else {
-    document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
-  }
-};
-
-// submit search: loncat ke hasil pertama
-const handleSearchSubmit = (e) => {
-  e.preventDefault();
-  searchRef.current?.blur();       // tutup keyboard
-  const first = filtered[0];
-  focusCatalog(first?.id);
-};
 
   // Settings (persist)
   const [freeOngkirMin, setFreeOngkirMin] = useState(() => {
-  const v = parseInt(readStr("sayur5_freeMin", "30000"), 10);
-  return Number.isFinite(v) ? v : 30000;
+    const v = parseInt(readStr("sayur5_freeMin", "30000"), 10);
+    return Number.isFinite(v) ? v : 30000;
   });
   const [ongkir, setOngkir] = useState(() => {
     const v = parseInt(readStr("sayur5_ongkir", "10000"), 10);
@@ -194,28 +154,17 @@ const handleSearchSubmit = (e) => {
   useEffect(() => { writeStr("sayur5_price", String(basePrice)); }, [basePrice]);
   useEffect(() => { writeStr("sayur5_storePhone", storePhone); }, [storePhone]);
 
-  // Data (persist)
- const [products, setProducts] = useState(() =>
-  readJSON("sayur5_products", STARTER_PRODUCTS)
-);
+  // Data (persist + fetch)
+  const [products, setProducts] = useState(() => readJSON("sayur5_products", STARTER_PRODUCTS));
+  useEffect(() => {
+    const url = import.meta.env.VITE_API_URL || "https://sayur5-bl6.pages.dev/api/products";
+    fetch(url, { mode: "cors" })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => { if (Array.isArray(data) && data.length) setProducts(data); })
+      .catch(() => {});
+  }, []);
 
-useEffect(() => {
-  const url = import.meta.env.VITE_API_URL || "https://sayur5-bl6.pages.dev/api/products";
-  fetch(url, { mode: "cors" })
-    .then(r => r.ok ? r.json() : Promise.reject())
-    .then(data => {
-      if (Array.isArray(data) && data.length) {
-        setProducts(data); // timpa data default / localStorage
-      }
-    })
-    .catch(() => {
-      // fallback: biarkan pakai localStorage / starter catalog
-    });
-}, []);
-  
- const [orders, setOrders] = useState(() => readJSON("sayur5_orders", []));
-  
-  // Sanitize cart when products change
+  // Bersihkan cart kalau ada produk hilang
   useEffect(() => {
     setCart((c) => {
       const valid = new Set(products.map((p) => p.id));
@@ -234,60 +183,55 @@ useEffect(() => {
     );
   }, [query, products]);
 
-  // daftar item di keranjang (aman)
   const items = useMemo(() => {
     const entries = Object.entries(cart ?? {});
     if (!Array.isArray(products) || entries.length === 0) return [];
-  
     return entries
       .map(([id, q]) => {
         const qty = Number.parseInt(q, 10) || 0;
         const p = products.find(x => x.id === id);
         const price = p ? priceOf(p, basePrice) : basePrice;
-        return p
-          ? { ...p, id, qty, price }
-          : { id, name: "(produk tidak tersedia)", qty, price };
+        return p ? { ...p, id, qty, price } : { id, name: "(produk tidak tersedia)", qty, price };
       })
       .filter(it => it.qty > 0);
   }, [cart, products, basePrice]);
 
-
-  const subtotal = useMemo(() => items.reduce((s, it) => s + it.qty * it.price, 0), [items]);
+  const subtotal    = useMemo(() => items.reduce((s, it) => s + it.qty * it.price, 0), [items]);
   const shippingFee = useMemo(() => computeShippingFee(subtotal, freeOngkirMin, ongkir), [subtotal, freeOngkirMin, ongkir]);
-  const grandTotal = subtotal + shippingFee;
-  const totalQty = useMemo(() => items.reduce((s, it) => s + it.qty, 0), [items]);
+  const grandTotal  = subtotal + shippingFee;
+  const totalQty    = useMemo(() => items.reduce((s, it) => s + it.qty, 0), [items]);
 
   // Cart ops
-  const add = (id) =>
-    setCart((c) => {
-      const current = Number.isFinite(parseInt(c[id], 10)) ? parseInt(c[id], 10) : 0;
-      const maxStock = Number.isFinite(parseInt(products.find(p => p.id === id)?.stock, 10))
-        ? parseInt(products.find(p => p.id === id)?.stock, 10)
-        : 99;
-      return { ...c, [id]: Math.min(current + 1, maxStock) };
-    });
-
-  const sub = (id) =>
-    setCart((c) => {
-      const current = Number.isFinite(parseInt(c[id], 10)) ? parseInt(c[id], 10) : 0;
-      const nextQty = Math.max(current - 1, 0);
-      const next = { ...c, [id]: nextQty };
-      if (nextQty === 0) delete next[id];
-      return next;
-    });
-
+  const add = (id) => setCart((c) => {
+    const current  = Number.isFinite(parseInt(c[id], 10)) ? parseInt(c[id], 10) : 0;
+    const maxStock = Number.isFinite(parseInt(products.find(p => p.id === id)?.stock, 10))
+      ? parseInt(products.find(p => p.id === id)?.stock, 10)
+      : 99;
+    return { ...c, [id]: Math.min(current + 1, maxStock) };
+  });
+  const sub = (id) => setCart((c) => {
+    const current = Number.isFinite(parseInt(c[id], 10)) ? parseInt(c[id], 10) : 0;
+    const nextQty = Math.max(current - 1, 0);
+    const next = { ...c, [id]: nextQty };
+    if (nextQty === 0) delete next[id];
+    return next;
+  });
   const clearCart = () => setCart({});
 
-  // Checkout handler
+  // Catat order — sekarang menerima override ongkir/total dari Checkout
   const createOrder = (payload) => {
-    const { name, phone, address, payment, note } = payload;
+    const { name, phone, address, payment, note, shippingOverride, totalOverride } = payload;
+    const shippingVal = Number.isFinite(shippingOverride) ? shippingOverride : shippingFee;
+    const totalVal    = Number.isFinite(totalOverride)    ? totalOverride    : (subtotal + shippingVal);
+
     const order = {
       id: `INV-${Date.now()}`,
       date: new Date().toISOString(),
       name, phone, address, payment, note,
       items: items.map(({ id, name, qty, price }) => ({ id, name, qty, price })),
-      subtotal, shipping: shippingFee, total: grandTotal, status: "baru"
+      subtotal, shipping: shippingVal, total: totalVal, status: "baru",
     };
+
     const copy = products.map(p => {
       const it = items.find(i => i.id === p.id);
       return it ? { ...p, stock: Math.max(0, p.stock - it.qty) } : p;
@@ -297,107 +241,97 @@ useEffect(() => {
     clearCart();
   };
 
+  const [orders, setOrders] = useState(() => readJSON("sayur5_orders", []));
+
+  // Search helpers
+  const searchRef = useRef(null);
+  const focusCatalog = (id) => {
+    const el = document.getElementById(`prod-${id}`);
+    const header = document.querySelector("header");
+    const offset = (header?.getBoundingClientRect().height ?? 72) + 8;
+    if (el) {
+      const y = el.getBoundingClientRect().top + window.scrollY - offset;
+      window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+      el.classList.add("ring-2", "ring-emerald-500", "rounded-xl");
+      setTimeout(() => el.classList.remove("ring-2", "ring-emerald-500", "rounded-xl"), 1200);
+    } else {
+      document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    searchRef.current?.blur();
+    const first = filtered[0];
+    focusCatalog(first?.id);
+  };
+
   // UI
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white text-slate-800">
-     <header className="sticky top-0 z-40 backdrop-blur bg-white/70 border-b">
-  <div className="mx-auto max-w-6xl px-4 py-3">
-    {/* Mobile: 2 baris • Desktop: 1 baris */}
-    <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3 md:justify-between">
+      {/* Header */}
+      <header className="sticky top-0 z-40 backdrop-blur bg-white/70 border-b">
+        <div className="mx-auto max-w-6xl px-4 py-3">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3 md:justify-between">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="p-2 rounded-2xl bg-emerald-100 text-emerald-700"><Leaf className="w-5 h-5" /></div>
+                <div className="leading-tight">
+                  <div className="font-bold">Sayur5</div>
+                  <div className="text-xs text-slate-500 -mt-0.5">Serba {toIDR(basePrice)} — Fresh Setiap Hari</div>
+                </div>
+              </div>
+              <div className="md:hidden">
+                <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
+              </div>
+            </div>
 
-      {/* Baris 1 (mobile): Brand + Keranjang; di desktop hanya brand */}
-      <div className="flex items-center justify-between">
-        {/* Brand */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="p-2 rounded-2xl bg-emerald-100 text-emerald-700">
-            <Leaf className="w-5 h-5" />
-          </div>
-          <div className="leading-tight">
-            <div className="font-bold">Sayur5</div>
-            <div className="text-xs text-slate-500 -mt-0.5">
-              Serba {toIDR(basePrice)} — Fresh Setiap Hari
+            <form onSubmit={handleSearchSubmit} className="w-full md:flex-1">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input
+                  ref={searchRef}
+                  type="search"
+                  enterKeyHint="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Cari bayam, kangkung, wortel…"
+                  className="pl-9 rounded-2xl w-full"
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSearchSubmit(e); } }}
+                />
+              </div>
+            </form>
+
+            <div className="hidden md:block">
+              <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
             </div>
           </div>
+
+          {query && (
+            <ul className="mt-2 md:hidden divide-y rounded-xl border bg-white overflow-hidden">
+              {filtered.slice(0, 6).map((p) => (
+                <li key={p.id}>
+                  <button type="button" className="w-full text-left py-2 px-3"
+                          onClick={() => { searchRef.current?.blur(); focusCatalog(p.id); }}>
+                    {p.name}
+                  </button>
+                </li>
+              ))}
+              {filtered.length === 0 && <li className="py-2 px-3 text-sm text-slate-500">Tidak ada hasil.</li>}
+            </ul>
+          )}
         </div>
+      </header>
 
-        {/* Tombol Keranjang: tampil di mobile, disembunyikan di desktop */}
-        <div className="md:hidden">
-          <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
-        </div>
-      </div>
-
-      {/* Baris 2 (mobile): Search full width; di desktop jadi di tengah dan flex-1 */}
-      <form onSubmit={handleSearchSubmit} className="w-full md:flex-1">
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <Input
-            ref={searchRef}
-            type="search"
-            enterKeyHint="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Cari bayam, kangkung, wortel…"
-            className="pl-9 rounded-2xl w-full"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleSearchSubmit(e);
-              }
-            }}
-          />
-        </div>
-      </form>
-
-      {/* Tombol Keranjang versi desktop */}
-      <div className="hidden md:block">
-        <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
-      </div>
-    </div>
-
-    {/* Quick suggestions (opsional, hanya mobile) */}
-    {query && (
-      <ul className="mt-2 md:hidden divide-y rounded-xl border bg-white overflow-hidden">
-        {filtered.slice(0, 6).map((p) => (
-          <li key={p.id}>
-            <button
-              type="button"
-              className="w-full text-left py-2 px-3"
-              onClick={() => {
-                searchRef.current?.blur();
-                focusCatalog(p.id);   // pastikan helper ini ada
-              }}
-            >
-              {p.name}
-            </button>
-          </li>
-        ))}
-        {filtered.length === 0 && (
-          <li className="py-2 px-3 text-sm text-slate-500">Tidak ada hasil.</li>
-        )}
-      </ul>
-    )}
-  </div>
-</header>
-
-      
-     {/* Topbar */}
-  <div className="mx-auto max-w-6xl px-4 py-3">
-    <div className="flex items-center justify-between">
-      {/* Brand */}
-      <div className="flex items-center gap-2">
-        <div className="p-2 rounded-2xl bg-emerald-100 text-emerald-700">
-          <Leaf className="w-5 h-5" />
-        </div>
-        <div className="leading-tight">
-          <div className="font-bold text-lg">Sayur5</div>
-          <div className="text-xs text-slate-500 -mt-0.5">
-            Serba {toIDR(basePrice)} — Fresh Setiap Hari
+      {/* Topbar mini */}
+      <div className="mx-auto max-w-6xl px-4 py-3">
+        <div className="flex items-center gap-2">
+          <div className="p-2 rounded-2xl bg-emerald-100 text-emerald-700"><Leaf className="w-5 h-5" /></div>
+          <div className="leading-tight">
+            <div className="font-bold text-lg">Sayur5</div>
+            <div className="text-xs text-slate-500 -mt-0.5">Serba {toIDR(basePrice)} — Fresh Setiap Hari</div>
           </div>
         </div>
-      </div> 
-    </div>   
-  </div> 
-
+      </div>
 
       {/* Hero */}
       <section className="mx-auto max-w-6xl px-4 pt-10">
@@ -415,13 +349,14 @@ useEffect(() => {
               <Badge variant="secondary" className="rounded-full">Tanpa Minimum per Item</Badge>
             </div>
           </motion.div>
+
           <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{duration:0.6}} className="md:justify-self-end">
             <div className="relative">
-              <div className="absolute -inset-4 bg-emerald-200/40 blur-2xl rounded-[2rem]"></div>
+              <div className="absolute -inset-4 bg-emerald-200/40 blur-2xl rounded-[2rem]" />
               <div className="relative grid grid-cols-3 gap-3">
                 {products.slice(0,6).map((p)=> (
                   <motion.div key={p.id} whileHover={{ scale: 1.04 }} className="p-4 rounded-2xl bg-white shadow-sm border flex flex-col items-center">
-                  <img
+                    <img
                       src={imgSrc(p.image)}
                       alt={p.name}
                       className="h-28 w-28 object-cover rounded-xl"
@@ -431,13 +366,12 @@ useEffect(() => {
                         if (!e.currentTarget.dataset.fallback) {
                           e.currentTarget.dataset.fallback = "1";
                           e.currentTarget.src = imgSrc("");
-                         }
+                        }
                       }}
                     />
                     <div className="text-xs mt-2 text-center font-medium">{p.name}</div>
-                  <div className="text-[10px] text-slate-500">{toIDR(priceOf(p, basePrice))}</div>
-                </motion.div>
-
+                    <div className="text-[10px] text-slate-500">{toIDR(priceOf(p, basePrice))}</div>
+                  </motion.div>
                 ))}
               </div>
             </div>
@@ -446,83 +380,65 @@ useEffect(() => {
       </section>
 
       {/* Catalog */}
-<section id="catalog" className="mx-auto max-w-6xl px-4 mt-10 mb-20">
-  {/* Baris judul katalog */}
-  <div className="flex items-center justify-between mb-3">
-    <h2 className="text-xl md:text-2xl font-bold">Katalog Hari Ini</h2>
-    <div className="hidden md:flex items-center gap-2 text-sm text-slate-500">
-      <Truck className="w-4 h-4" /> Estimasi kirim: 1–3 jam setelah pembayaran
-    </div>
-  </div>
+      <section id="catalog" className="mx-auto max-w-6xl px-4 mt-10 mb-20">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xl md:text-2xl font-bold">Katalog Hari Ini</h2>
+          <div className="hidden md:flex items-center gap-2 text-sm text-slate-500">
+            <Truck className="w-4 h-4" /> Estimasi kirim: 1–3 jam setelah pembayaran
+          </div>
+        </div>
 
-  {/* Grid produk */}
-  <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-    <AnimatePresence>
-      {filtered.map((p) => (
-        <motion.div
-          key={p.id}
-          id={`prod-${p.id}`}           // untuk scroll dari search
-          layout
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0 }}
-        >
-          <Card className="rounded-2xl overflow-hidden group">
-            <CardHeader className="p-0">
-              <div className="h-28 bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center">
-                {/* pakai img yang sudah ada di kode kamu */}
-                <img
-                  src={imgSrc(p.image)}
-                  alt={p.name}
-                  className="h-28 w-28 object-cover rounded-xl"
-                  loading="lazy"
-                  decoding="async"
-                  onError={(e) => {
-                    if (!e.currentTarget.dataset.fallback) {
-                      e.currentTarget.dataset.fallback = "1";
-                      e.currentTarget.src = imgSrc("");
-                    }
-                  }}
-                />
-              </div>
-            </CardHeader>
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <AnimatePresence>
+            {filtered.map((p) => (
+              <motion.div key={p.id} id={`prod-${p.id}`} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <Card className="rounded-2xl overflow-hidden group">
+                  <CardHeader className="p-0">
+                    <div className="h-28 bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center">
+                      <img
+                        src={imgSrc(p.image)}
+                        alt={p.name}
+                        className="h-28 w-28 object-cover rounded-xl"
+                        loading="lazy"
+                        decoding="async"
+                        onError={(e) => {
+                          if (!e.currentTarget.dataset.fallback) {
+                            e.currentTarget.dataset.fallback = "1";
+                            e.currentTarget.src = imgSrc("");
+                          }
+                        }}
+                      />
+                    </div>
+                  </CardHeader>
 
-            <CardContent className="p-4">
-              <CardTitle className="text-base font-semibold leading-tight">
-                {p.name || p.id}
-              </CardTitle>
-            
-              <div className="text-xs text-slate-500 mt-1 line-clamp-2">
-                {p.desc || "—"}
-              </div>
-            
-              <div className="mt-3 flex items-center justify-between">
-                <div className="font-extrabold">{toIDR(priceOf(p, basePrice))}</div>
-                <div className="text-xs text-slate-500">Stok: {Number.isFinite(+p.stock) ? +p.stock : 20}</div>
-              </div>
-            
-              <div className="mt-3 flex gap-2">
-                <Button className="rounded-xl flex-1" onClick={() => add(p.id)}>Tambah</Button>
-                {cart[p.id] ? (
-                  <div className="flex items-center border rounded-xl overflow-hidden">
-                    <Button size="icon" variant="ghost" onClick={() => sub(p.id)}><Minus className="w-4 h-4" /></Button>
-                    <div className="px-2 w-8 text-center font-semibold">{cart[p.id]}</div>
-                    <Button size="icon" variant="ghost" onClick={() => add(p.id)}><Plus className="w-4 h-4" /></Button>
-                  </div>
-                ) : (
-                  <Button variant="outline" className="rounded-xl" onClick={() => add(p.id)} size="icon">
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      ))}
-    </AnimatePresence>
-  </div>
-</section>
-
+                  <CardContent className="p-4">
+                    <CardTitle className="text-base font-semibold leading-tight">{p.name || p.id}</CardTitle>
+                    <div className="text-xs text-slate-500 mt-1 line-clamp-2">{p.desc || "—"}</div>
+                    <div className="mt-3 flex items-center justify-between">
+                      <div className="font-extrabold">{toIDR(priceOf(p, basePrice))}</div>
+                      <div className="text-xs text-slate-500">Stok: {Number.isFinite(+p.stock) ? +p.stock : 20}</div>
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <Button className="rounded-xl flex-1" onClick={() => add(p.id)}>Tambah</Button>
+                      {cart[p.id] ? (
+                        <div className="flex items-center border rounded-xl overflow-hidden">
+                          <Button size="icon" variant="ghost" onClick={() => sub(p.id)}><Minus className="w-4 h-4" /></Button>
+                          <div className="px-2 w-8 text-center font-semibold">{cart[p.id]}</div>
+                          <Button size="icon" variant="ghost" onClick={() => add(p.id)}><Plus className="w-4 h-4" /></Button>
+                        </div>
+                      ) : (
+                        <Button variant="outline" className="rounded-xl" onClick={() => add(p.id)} size="icon">
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      </section>
 
       {/* Footer */}
       <footer className="border-t bg-white/70 backdrop-blur">
@@ -534,115 +450,101 @@ useEffect(() => {
           <div>
             <div className="font-semibold mb-2">Kontak</div>
             <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5"/> {storePhone}</div>
-            <div className="flex items-center gap-2 mt-1"><MapPin className="w-3.5 h-3.5"/> Area layanan: Dalam kota</div>
+            <div className="flex items-center gap-2 mt-1"><BadgePercent className="w-3.5 h-3.5"/> Gratis ongkir min {toIDR(freeOngkirMin)}</div>
           </div>
-          <div>
-            <div className="font-semibold mb-2">Promo</div>
-            <div className="flex items-center gap-2"><BadgePercent className="w-3.5 h-3.5"/> Gratis ongkir min {toIDR(freeOngkirMin)}</div>
-          </div>
+          <div />
         </div>
       </footer>
 
-          <CartDrawer
-          open={cartOpen}
-          onClose={() => setCartOpen(false)}
-          items={items}
-          totalQty={totalQty}
-          subtotal={subtotal}
-          shippingFee={shippingFee}
-          grandTotal={grandTotal}
-          add={add}
-          sub={sub}
-          clearCart={clearCart}
-          onOpenCheckout={openCheckoutHandler}
-          freeOngkirMin={freeOngkirMin}
-          ongkir={ongkir}
-        />
+      {/* Drawer Keranjang */}
+      <CartDrawer
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        items={items}
+        totalQty={totalQty}
+        subtotal={subtotal}
+        shippingFee={shippingFee}
+        grandTotal={grandTotal}
+        add={add}
+        sub={sub}
+        clearCart={clearCart}
+        onOpenCheckout={() => setOpenCheckout(true)}
+        freeOngkirMin={freeOngkirMin}
+        ongkir={ongkir}
+      />
 
+      {/* Checkout Modal */}
+      <Dialog open={openCheckout} onOpenChange={setOpenCheckout}>
+        <DialogContent className="sm:max-w-lg p-0 rounded-2xl">
+          <div className="max-h-[85dvh] overflow-y-auto overscroll-contain">
+            <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
+              <DialogHeader className="flex items-center justify-between p-2">
+                <Button variant="ghost" size="sm" onClick={() => setOpenCheckout(false)}>
+                  <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
+                </Button>
+                <DialogTitle>Checkout</DialogTitle>
+              </DialogHeader>
+            </div>
 
-      {/* Checkout */}
-     <Dialog open={openCheckout} onOpenChange={setOpenCheckout}>
-  {/* p-0: biar wrapper scroll-nya full; rounded tetap */}
-  <DialogContent className="sm:max-w-lg p-0 rounded-2xl">
-    {/* AREA SCROLL */}
-    <div className="max-h-[85dvh] overflow-y-auto overscroll-contain">
-      {/* Header sticky supaya tombol Kembali selalu terlihat */}
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
-        <DialogHeader className="flex items-center justify-between p-2">
-          <Button variant="ghost" size="sm" onClick={closeCheckoutHandler}>
-            <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
-          </Button>
-          <DialogTitle>Checkout</DialogTitle>
-        </DialogHeader>
-      </div>
-
-      {/* Konten form */}
-      <div className="p-4">
-        {items.length === 0 ? (
-          <div className="text-sm text-slate-500">Keranjang kosong.</div>
-        ) : (
-          <CheckoutForm
-            items={items}
-            subtotal={subtotal}
-            shippingFee={shippingFee}
-            grandTotal={grandTotal}
-            onSubmit={(payload) => {
-              createOrder(payload);
-              closeCheckoutHandler();
-            }}
-            storePhone={storePhone}
-          />
-        )}
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+            <div className="p-4">
+              {items.length === 0 ? (
+                <div className="text-sm text-slate-500">Keranjang kosong.</div>
+              ) : (
+                <CheckoutForm
+                  items={items}
+                  subtotal={subtotal}
+                  shippingFee={shippingFee}
+                  grandTotal={grandTotal}
+                  onSubmit={(payload) => {
+                    createOrder(payload); // shipping/total override dibawa dari CheckoutForm
+                    setOpenCheckout(false);
+                  }}
+                  storePhone={storePhone}
+                />
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-/* ===== Subcomponents ===== */
+/* =============================================================================
+   Subcomponents
+============================================================================= */
+function CartButton({ totalQty = 0, onOpen }) {
+  return (
+    <Button className="rounded-2xl" variant="default" onClick={onOpen}>
+      <ShoppingCart className="w-4 h-4 mr-2" />
+      Keranjang
+      {totalQty > 0 && (
+        <span className="ml-2 text-xs bg-emerald-600 text-white px-2 py-0.5 rounded-full">{totalQty}</span>
+      )}
+    </Button>
+  );
+}
+
 function CartDrawer({
-  open,
-  onClose,
-  items,
-  totalQty,
-  subtotal,
-  shippingFee,
-  grandTotal,
-  add,
-  sub,
-  clearCart,
-  onOpenCheckout,
-  freeOngkirMin,
-  ongkir,
+  open, onClose, items, totalQty, subtotal, shippingFee, grandTotal,
+  add, sub, clearCart, onOpenCheckout, freeOngkirMin, ongkir,
 }) {
   if (!open) return null;
   const list = Array.isArray(items) ? items : [];
-
   return (
     <div className="fixed inset-0 z-[100]">
-      {/* backdrop */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-
-      {/* panel kanan */}
       <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl border-l p-4 overflow-y-auto">
-        {/* header */}
         <div className="flex items-center justify-between mb-2">
           <Button variant="ghost" size="sm" className="rounded-xl" onClick={onClose}>
             <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
           </Button>
           <div className="text-sm text-slate-500">Item: {totalQty}</div>
         </div>
-
         <h3 className="text-lg font-semibold mb-3">Keranjang Belanja</h3>
 
-        {/* list item */}
         <div className="space-y-4">
-          {list.length === 0 && (
-            <div className="text-sm text-slate-500">Keranjang kosong. Yuk pilih sayur dulu.</div>
-          )}
-
+          {list.length === 0 && <div className="text-sm text-slate-500">Keranjang kosong. Yuk pilih sayur dulu.</div>}
           {list.map((it) => (
             <Card key={it.id} className="rounded-2xl">
               <CardContent className="p-4 flex items-center gap-3">
@@ -666,26 +568,15 @@ function CartDrawer({
           ))}
         </div>
 
-        {/* ringkasan */}
         <div className="mt-6 border-t pt-4 space-y-1 text-sm">
-          <div className="flex justify-between">
-            <span>Subtotal</span><span>{toIDR(subtotal)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Ongkir</span><span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span>
-          </div>
-          <div className="flex justify-between font-bold text-base">
-            <span>Total</span><span>{toIDR(grandTotal)}</span>
-          </div>
+          <div className="flex justify-between"><span>Subtotal</span><span>{toIDR(subtotal)}</span></div>
+          <div className="flex justify-between"><span>Ongkir</span><span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span></div>
+          <div className="flex justify-between font-bold text-base"><span>Total</span><span>{toIDR(grandTotal)}</span></div>
         </div>
 
-        {/* aksi */}
         <div className="mt-4 flex gap-2">
-          <Button
-            className="flex-1 rounded-2xl"
-            disabled={list.length === 0}
-            onClick={() => { onClose(); onOpenCheckout(); }}
-          >
+          <Button className="flex-1 rounded-2xl" disabled={list.length === 0}
+                  onClick={() => { onClose(); onOpenCheckout(); }}>
             <CreditCard className="w-4 h-4 mr-2" /> Checkout
           </Button>
           <Button variant="ghost" className="rounded-2xl" onClick={clearCart} disabled={list.length === 0}>
@@ -693,16 +584,11 @@ function CartDrawer({
           </Button>
         </div>
 
-        {/* info aturan ongkir */}
         <div className="mt-8 p-3 rounded-xl bg-slate-50 text-xs">
           <div className="font-semibold mb-2">Ongkir Ditentukan Admin</div>
           <div className="grid grid-cols-2 gap-2">
-            <div className="flex items-center justify-between">
-              <span>Min Gratis Ongkir</span><span className="font-medium">{toIDR(freeOngkirMin)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Biaya Ongkir</span><span className="font-medium">{toIDR(ongkir)}</span>
-            </div>
+            <div className="flex items-center justify-between"><span>Min Gratis Ongkir</span><span className="font-medium">{toIDR(freeOngkirMin)}</span></div>
+            <div className="flex items-center justify-between"><span>Biaya Ongkir</span><span className="font-medium">{toIDR(ongkir)}</span></div>
           </div>
         </div>
       </div>
@@ -710,35 +596,18 @@ function CartDrawer({
   );
 }
 
-
-
-function CartButton({ totalQty = 0, onOpen }) {
-  return (
-    <Button className="rounded-2xl" variant="default" onClick={onOpen}>
-      <ShoppingCart className="w-4 h-4 mr-2" />
-      Keranjang
-      {totalQty > 0 && (
-        <span className="ml-2 text-xs bg-emerald-600 text-white px-2 py-0.5 rounded-full">
-          {totalQty}
-        </span>
-      )}
-    </Button>
-  );
-}
-
-
 function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, storePhone }) {
-  // === state dasar ===
+  // State form
   const [form, setForm] = useState({ name: "", phone: "", address: "", payment: "cod", note: "" });
   const validPhone = isValidIndoPhone(form.phone);
 
   // Alamat terstruktur
-  const [addrDetail, setAddrDetail] = useState("");   // Jalan/gang/nomor rumah (boleh tulis RT/RW)
-  const [kelurahan, setKelurahan] = useState("");     // pilih/ketik kelurahan
-  const [addrMeta, setAddrMeta] = useState(null);     // { lat, lng, allowed, geocode?, source }
+  const [addrDetail, setAddrDetail] = useState(""); // Jalan/gang/nomor (bisa "lat,lng")
+  const [kelurahan, setKelurahan] = useState("");
+  const [addrMeta, setAddrMeta] = useState(null);   // {lat,lng,allowed,source,geocode?}
   const [locError, setLocError] = useState("");
 
-  // Susun form.address (gabungan) untuk display & WA
+  // Susun form.address (untuk display & WA)
   useEffect(() => {
     const parts = [];
     if (addrDetail) parts.push(addrDetail);
@@ -747,7 +616,7 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
     setForm(f => ({ ...f, address: parts.join(", ") }));
   }, [addrDetail, kelurahan]);
 
-  // Prefill dari cache (15 menit)
+  // Prefill dari cache 15 menit
   useEffect(() => {
     const cached = readJSON("sayur5.locCache", null);
     if (cached && Date.now() - cached.ts < 15 * 60 * 1000) {
@@ -756,14 +625,14 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
     }
   }, []);
 
-  // Auto-geocode TANPA GPS (debounce)
+  // Auto-estimate koordinat tujuan dari teks
   useEffect(() => {
     setLocError("");
     const detail = (addrDetail || "").trim();
     const kel = (kelurahan || "").trim();
     if (!detail && !kel) return;
 
-    // A) Jika user ketik "lat,lng" di detail — langsung pakai
+    // A) Manual "lat,lng"
     const manual = parseLatLng(detail);
     if (manual) {
       const d = haversineKm(STORE.lat, STORE.lng, manual.lat, manual.lng);
@@ -776,17 +645,10 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
     // B) Geocode alamat gabungan (debounce)
     const id = setTimeout(async () => {
       const niceDetail = normalizeAddress(detail);
-      const query = [
-        niceDetail,
-        kel ? `Kelurahan ${kel}` : "",
-        "Kecamatan Ambarawa",
-        "Kabupaten Semarang",
-        "Jawa Tengah",
-        "Indonesia",
-      ].filter(Boolean).join(", ");
+      const query = [niceDetail, kel ? `Kelurahan ${kel}` : "", "Kecamatan Ambarawa", "Kabupaten Semarang", "Jawa Tengah", "Indonesia"]
+        .filter(Boolean).join(", ");
 
-      // Hindari spam geocode kalau terlalu pendek
-      if (query.replace(/[, ]/g, "").length < 12) return;
+      if (query.replace(/[, ]/g, "").length < 12) return; // hindari query terlalu pendek
 
       try {
         const g = await geocodeAddressOSM(query);
@@ -802,12 +664,10 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
     }, 700);
 
     return () => clearTimeout(id);
-    // pakai addrDetail/kelurahan sebagai trigger; form.address disusun otomatis
-  }, [addrDetail, kelurahan]);
+  }, [addrDetail, kelurahan, form.address]);
 
   // Derived
   const safeItems = Array.isArray(items) ? items : [];
-
   const distKm = useMemo(() => {
     if (!addrMeta?.lat || !addrMeta?.lng) return null;
     return haversineKm(STORE.lat, STORE.lng, addrMeta.lat, addrMeta.lng);
@@ -815,15 +675,14 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
 
   const estShipping = useMemo(() => {
     const v = calcOngkirFromStore(subtotal, addrMeta?.lat, addrMeta?.lng);
-    return v == null ? shippingFee : v;   // sementara pakai ongkir lama jika belum ada titik
+    return v == null ? shippingFee : v; // sebelum dapat koordinat, pakai ongkir default
   }, [subtotal, addrMeta, shippingFee]);
 
   const localTotal = useMemo(() => subtotal + estShipping, [subtotal, estShipping]);
-
   const inServiceArea = addrMeta?.allowed === true || /ambarawa/i.test(form.address || "");
   const canSubmit = Boolean(form.name && validPhone && form.address && safeItems.length > 0 && inServiceArea);
 
-  // Link Maps
+  // WA text
   const { mapsPinUrl, mapsNavUrl } = useMemo(() => {
     if (addrMeta?.lat && addrMeta?.lng) {
       const lat = to6(addrMeta.lat), lng = to6(addrMeta.lng);
@@ -835,7 +694,6 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
     return { mapsPinUrl: "", mapsNavUrl: "" };
   }, [addrMeta]);
 
-  // Teks WA
   const orderText = useMemo(() => {
     const lines = [
       `Pesanan Sayur5`,
@@ -858,35 +716,25 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
 
   const waLink = `https://wa.me/${toWA(storePhone)}?text=${orderText}`;
 
-// === Handler klik WhatsApp ===
-const handleWhatsAppClick = (e) => {
-  if (!canSubmit) { 
-    e.preventDefault(); 
-    return; 
-  }
+  // Klik WA → buka WA dulu, lalu catat order (agar tidak “gagal lempar WA”)
+  const handleWhatsAppClick = (e) => {
+    if (!canSubmit) { e.preventDefault(); return; }
+    const win = window.open(waLink, "_blank");
+    if (!win) window.location.href = waLink; // fallback kalau popup diblok
+    e.preventDefault();
+    onSubmit?.({
+      name: form.name,
+      phone: form.phone,
+      address: form.address,
+      payment: form.payment,
+      note: form.note,
+      addrMeta,
+      shippingOverride: estShipping,
+      totalOverride: localTotal,
+    });
+  };
 
-  // 1) Buka WA dulu (masih dalam user-gesture)
-  const win = window.open(waLink, "_blank");
-  if (!win) {
-    // fallback kalau popup diblok
-    window.location.href = waLink;
-  }
-
-  // cegah default anchor untuk menghindari race
-  e.preventDefault();
-
-  // 2) Baru catat pesanan di app kamu
-  onSubmit?.({
-    name: form.name,
-    phone: form.phone,
-    address: form.address,
-    payment: form.payment,
-    note: form.note,
-    addrMeta, // kirim meta lokasi jika ada
-  });
-};
-
-  // === UI ===
+  // UI
   return (
     <div className="grid gap-3">
       <div className="grid md:grid-cols-2 gap-3">
@@ -894,7 +742,6 @@ const handleWhatsAppClick = (e) => {
           <span>Nama Penerima</span>
           <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nama lengkap" className="rounded-xl" />
         </label>
-
         <label className="grid gap-1 text-sm">
           <span>No. HP</span>
           <Input
@@ -907,7 +754,6 @@ const handleWhatsAppClick = (e) => {
         </label>
       </div>
 
-      {/* Alamat terstruktur */}
       <label className="grid gap-1 text-sm">
         <span>Detail Alamat</span>
         <Textarea
@@ -932,33 +778,19 @@ const handleWhatsAppClick = (e) => {
             {KEL_OPTIONS.map(k => <option value={k} key={k} />)}
           </datalist>
         </label>
-
-        <label className="grid gap-1 text-sm">
-          <span>Kecamatan</span>
-          <Input className="rounded-xl bg-slate-50" value="Ambarawa" readOnly />
-        </label>
-
-        <label className="grid gap-1 text-sm">
-          <span>Kabupaten</span>
-          <Input className="rounded-xl bg-slate-50" value="Semarang" readOnly />
-        </label>
+        <label className="grid gap-1 text-sm"><span>Kecamatan</span><Input className="rounded-xl bg-slate-50" value="Ambarawa" readOnly /></label>
+        <label className="grid gap-1 text-sm"><span>Kabupaten</span><Input className="rounded-xl bg-slate-50" value="Semarang" readOnly /></label>
       </div>
+      <label className="grid gap-1 text-sm"><span>Provinsi</span><Input className="rounded-xl bg-slate-50" value="Jawa Tengah" readOnly /></label>
 
-      <label className="grid gap-1 text-sm">
-        <span>Provinsi</span>
-        <Input className="rounded-xl bg-slate-50" value="Jawa Tengah" readOnly />
-      </label>
-
-      {/* Info geocode/layanan */}
       {!!locError && <div className="text-xs text-red-600 mt-1">{locError}</div>}
       {addrMeta?.lat && addrMeta?.lng && typeof distKm === "number" && (
         <div className="text-[11px] text-slate-600">Perkiraan jarak dari toko: ≈ {distKm.toFixed(1)} km</div>
       )}
-      {form.address && !inServiceArea && (
+      {form.address && !(addrMeta?.allowed) && (
         <div className="text-xs text-red-600">Maaf, alamat di luar area layanan.</div>
       )}
 
-      {/* Ringkasan */}
       <div className="mt-2 border rounded-2xl p-3 bg-slate-50">
         <div className="font-semibold mb-2">Ringkasan</div>
         <div className="space-y-1 text-sm">
@@ -968,22 +800,15 @@ const handleWhatsAppClick = (e) => {
               <span>{toIDR(it.price * it.qty)}</span>
             </div>
           ))}
-          <div className="flex justify-between mt-2">
-            <span>Subtotal</span>
-            <span>{toIDR(subtotal)}</span>
-          </div>
+          <div className="flex justify-between mt-2"><span>Subtotal</span><span>{toIDR(subtotal)}</span></div>
           <div className="flex justify-between">
             <span>Ongkir{typeof distKm === "number" ? ` (≈ ${distKm.toFixed(1)} km)` : ""}</span>
             <span>{estShipping === 0 ? "Gratis" : toIDR(estShipping)}</span>
           </div>
-          <div className="flex justify-between font-bold text-base">
-            <span>Total</span>
-            <span>{toIDR(localTotal)}</span>
-          </div>
+          <div className="flex justify-between font-bold text-base"><span>Total</span><span>{toIDR(localTotal)}</span></div>
         </div>
       </div>
 
-      {/* Tombol WA */}
       <div className="flex flex-col sm:flex-row gap-2 mt-1">
         <a
           href={waLink}
@@ -995,7 +820,6 @@ const handleWhatsAppClick = (e) => {
         >
           Pesan via WhatsApp
         </a>
-
       </div>
 
       <div className="text-xs text-slate-500">
@@ -1004,4 +828,3 @@ const handleWhatsAppClick = (e) => {
     </div>
   );
 }
-
