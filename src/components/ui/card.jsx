@@ -1,12 +1,5 @@
-export function Card({ className = "", ...props }) {
-  return <div className={["rounded-2xl border bg-white", className].join(" ")} {...props} />;
-}
-export function CardHeader({ className = "", ...props }) {
-  return <div className={["p-4", className].join(" ")} {...props} />;
-}
-export function CardContent({ className = "", ...props }) {
-  return <div className={["p-4", className].join(" ")} {...props} />;
-}
-export function CardTitle({ className = "", ...props }) {
-  return <h3 className={["text-base font-semibold", className].join(" ")} {...props} />;
-}
+import React from 'react'
+export const Card = ({ className='', ...props }) => <div className={`rounded-md border bg-white ${className}`} {...props} />
+export const CardHeader = ({ className='', ...props }) => <div className={`border-b ${className}`} {...props} />
+export const CardTitle = ({ className='', ...props }) => <div className={`text-lg font-semibold ${className}`} {...props} />
+export const CardContent = ({ className='', ...props }) => <div className={`p-4 ${className}`} {...props} />
