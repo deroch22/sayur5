@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { imgSrc } from "@/utils/img";
 import { readJSON, writeJSON, readStr, writeStr } from "@/utils/safe";
 import { isInsideAmbarawa, reverseGeocode, AMBARAWA_CENTER } from "@/utils/geofence-ambarawa.js";
-import MapPicker from "@/components/MapPicker.jsx";
+
 
 /* ================= Helpers (global) ================= */
 const DEFAULT_BASE_PRICE = 5000;
@@ -687,9 +687,6 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
         <div className="flex items-center justify-between">
           <span>Alamat Lengkap</span>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setMapOpen(true)} className="inline-flex items-center gap-1 text-emerald-700 hover:underline">
-              Pilih lewat peta
-            </button>
           </div>
         </div>
         <Textarea
@@ -748,13 +745,6 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
         *Tombol WhatsApp akan membuka chat dengan format pesanan otomatis. Layanan saat ini khusus area Ambarawa.
       </div>
 
-      {mapOpen && (
-        <MapPicker
-          initial={addrMeta?.lat != null && addrMeta?.lng != null ? { lat: addrMeta.lat, lng: addrMeta.lng } : { lat: AMBARAWA_CENTER.lat, lng: AMBARAWA_CENTER.lng }}
-          onCancel={() => setMapOpen(false)}
-          onConfirm={onPickFromMap}
-        />
-      )}
     </div>
   );
 }
