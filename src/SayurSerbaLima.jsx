@@ -18,6 +18,27 @@ import { isInsideAmbarawa, reverseGeocode, AMBARAWA_CENTER } from "@/utils/geofe
 
 /* ================= Helpers ================= */
 const DEFAULT_BASE_PRICE = 5000;
+// ==== KATEGORI (sinkron AdminPanel) ====
+export const CATEGORY_OPTIONS = [
+  { value: "serba5k",   label: "Serba 5k" },
+  { value: "ambil3",    label: "Paket 10k" },    // 3 item Rp10k
+  { value: "siapMasak", label: "Siap masak" },
+];
+
+export function catLabel(v) {
+  const f = CATEGORY_OPTIONS.find(x => x.value === v);
+  return f ? f.label : "-";
+}
+
+// Alias lama -> standar
+export function normalizeCategory(c = "") {
+  const v = String(c || "").toLowerCase().trim();
+  if (["serba5k","serba5","serba","small"].includes(v)) return "serba5k";
+  if (["ambil3","triple","triple10k","triplehemat","medium","3for10k","3x10k"].includes(v)) return "ambil3";
+  if (["siapmasak","siap-masak","bundle","paket","paket10k"].includes(v)) return "siapMasak";
+  return "serba5k";
+}
+
 const STORE = { lat: -7.259527, lng: 110.403026 };
 const PER_KM = 2500;
 
@@ -40,13 +61,14 @@ const CATEGORY_OPTIONS = [
 export const catLabel = (v) => (CATEGORY_OPTIONS.find(x => x.value === v)?.label ?? v ?? "-");
 
 const STARTER_PRODUCTS = [
-  { id: "bayam", name: "Bayam Fresh", desc: "Dipetik pagi, siap masak bening.", stock: 50, category: "serba5k" },
-  { id: "kangkung", name: "Kangkung", desc: "Crispy untuk cah bawang.", stock: 60, category: "serba5k" },
-  { id: "wortel", name: "Wortel", desc: "Manis & renyah, cocok sop.", stock: 80, category: "serba5k" },
-  { id: "kol", name: "Kol", desc: "Segar untuk capcay.", stock: 40, category: "ambil3" },
-  { id: "tomat", name: "Tomat", desc: "Merah ranum, sambal mantap.", stock: 70, category: "ambil3" },
-  { id: "buncis", name: "Buncis", desc: "Muda & empuk.", stock: 55, category: "siapMasak" },
+  { id: "bayam",    name: "Bayam Fresh", desc: "Dipetik pagi, siap masak bening.", stock: 50, category: "serba5k" },
+  { id: "kangkung", name: "Kangkung",    desc: "Crispy untuk cah bawang.",       stock: 60, category: "serba5k" },
+  { id: "wortel",   name: "Wortel",      desc: "Manis & renyah, cocok sop.",     stock: 80, category: "serba5k" },
+  { id: "kol",      name: "Kol",         desc: "Segar untuk capcay.",            stock: 40, category: "serba5k" },
+  { id: "tomat",    name: "Tomat",       desc: "Merah ranum, sambal mantap.",    stock: 70, category: "serba5k" },
+  { id: "buncis",   name: "Buncis",      desc: "Muda & empuk.",                   stock: 55, category: "serba5k" },
 ];
+
 
 const computeShippingFee = (subtotal, freeMin, fee) =>
   subtotal === 0 || subtotal >= freeMin ? 0 : fee;
@@ -107,12 +129,19 @@ export default function SayurSerbaLima() {
 
   const [products, setProducts] = useState(() => readJSON("sayur5_products", STARTER_PRODUCTS));
   useEffect(() => {
-    const url = import.meta.env.VITE_API_URL || "https://sayur5-bl6.pages.dev/api/products";
-    fetch(url, { mode: "cors" })
-      .then(r => r.ok ? r.json() : Promise.reject())
-      .then(data => { if (Array.isArray(data) && data.length) setProducts(data); })
-      .catch(() => {});
-  }, []);
+  const url = import.meta.env.VITE_API_URL || "https://sayur5-bl6.pages.dev/api/products";
+  fetch(url, { mode: "cors" })
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => {
+      if (Array.isArray(data) && data.length) {
+        setProducts(
+          data.map(p => ({ ...p, category: normalizeCategory(p.category) }))
+        );
+      }
+    })
+    .catch(() => {});
+}, []);
+
 
   const [orders, setOrders] = useState(() => readJSON("sayur5_orders", []));
 
@@ -126,13 +155,32 @@ export default function SayurSerbaLima() {
   }, [products]);
 
   // Filtered products
-  const filtered = useMemo(() => {
-    let list = products;
-    if (catFilter !== "all") list = list.filter((p) => (p.category || "serba5k") === catFilter);
-    const q = (query || "").toLowerCase().trim();
-    if (q) list = list.filter((p) => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q));
-    return list;
-  }, [query, products, catFilter]);
+  // state
+const [catFilter, setCatFilter] = useState("all");
+
+// pakai di filtered:
+const filtered = useMemo(() => {
+  const q = (query || "").toLowerCase().trim();
+  let list = products.map(p => ({ ...p, category: normalizeCategory(p.category) }));
+  if (catFilter !== "all") list = list.filter(p => normalizeCategory(p.category) === catFilter);
+  if (!q) return list;
+  return list.filter(p => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q));
+}, [query, products, catFilter]);
+
+// UI di atas grid katalog
+<div className="flex gap-2 mb-3">
+  {[{v:"all",label:"Semua"}, ...CATEGORY_OPTIONS.map(o=>({v:o.value,label:o.label}))].map(btn => (
+    <Button
+      key={btn.v}
+      variant={catFilter === btn.v ? "default" : "outline"}
+      onClick={() => setCatFilter(btn.v)}
+      className="rounded-xl"
+    >
+      {btn.label}
+    </Button>
+  ))}
+</div>
+
 
   const items = useMemo(() => {
     const entries = Object.entries(cart ?? {});
@@ -336,7 +384,7 @@ export default function SayurSerbaLima() {
 
                   <div className="mt-1">
                     <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-                      {catLabel(p.category || "serba5k")}
+                      {catLabel(normalizeCategory(p.category))}
                     </span>
                   </div>
 
