@@ -226,19 +226,33 @@ export default function SayurSerbaLima() {
       {/* Hero */}
 <section className="mx-auto max-w-6xl px-4 pt-10">
   <div className="grid md:grid-cols-2 gap-6 items-center">
-    {/* Kolom kiri — judul & paragraf (biarkan seperti sekarang) */}
-    <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{duration:0.5}}>
-      {/* ...judul, paragraf, badge... */}
+    {/* Kolom kiri — judul & paragraf */}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <h1 className="text-3xl md:text-5xl font-extrabold leading-tight">
+        Sayur Fresh Serba {toIDR(basePrice)}<br />Gaya Startup, Harga Merakyat.
+      </h1>
+      <p className="mt-3 text-slate-600 md:text-lg">
+        Belanja sayur cepat, murah, dan anti ribet. Checkout dalam hitungan detik, diantar hari ini juga.
+      </p>
+      <div className="mt-5 flex flex-wrap gap-2">
+        <Badge className="rounded-full">Panen Pagi</Badge>
+        <Badge variant="outline" className="rounded-full">Kurasi Harian</Badge>
+        <Badge variant="secondary" className="rounded-full">Tanpa Minimum per Item</Badge>
+      </div>
     </motion.div>
 
-    {/* Kolom kanan — GANTI jadi relative, lalu tambahkan Visual di sini */}
+    {/* Kolom kanan — visual + grid gambar */}
     <motion.div
-      initial={{opacity:0, y:20}}
-      animate={{opacity:1, y:0}}
-      transition={{duration:0.6}}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6 }}
       className="relative md:justify-self-end"
     >
-      {/* >>> VISUAL KECIL DI POJOK KANAN-ATAS <<< */}
+      {/* Visual kecil di pojok kanan-atas */}
       <div className="hidden md:block absolute -top-6 right-0 md:top-0 md:-right-6 z-10">
         <div className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-white/80 backdrop-blur border shadow-sm">
           <span className="text-2xl">🥬</span>
@@ -247,22 +261,49 @@ export default function SayurSerbaLima() {
             <div className="text-xs text-slate-500">Fresh harian • kurasi ketat • antar cepat</div>
           </div>
           <button
-            onClick={() => document.getElementById("catalog")?.scrollIntoView({behavior:"smooth"})}
+            onClick={() =>
+              document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" })
+            }
             className="ml-2 text-xs px-3 py-1 rounded-xl bg-emerald-600 text-white"
           >
             Lihat Katalog
           </button>
         </div>
       </div>
-      {/* <<< END VISUAL >>> */}
 
-      {/* Grid gambar (biarkan seperti semula) */}
-      <div className="relative grid grid-cols-3 gap-3 mt-10 md:mt-14">
-        {/* ...map products.slice(0,6) ... */}
+      {/* Grid gambar seperti semula */}
+      <div className="relative">
+        <div className="absolute -inset-4 bg-emerald-200/40 blur-2xl rounded-[2rem]" />
+        <div className="relative grid grid-cols-3 gap-3 mt-10 md:mt-14">
+          {products.slice(0, 6).map((p) => (
+            <motion.div
+              key={p.id}
+              whileHover={{ scale: 1.04 }}
+              className="p-4 rounded-2xl bg-white shadow-sm border flex flex-col items-center"
+            >
+              <img
+                src={imgSrc(p.image)}
+                alt={p.name}
+                className="h-28 w-28 object-cover rounded-xl"
+                loading="lazy"
+                decoding="async"
+                onError={(e) => {
+                  if (!e.currentTarget.dataset.fallback) {
+                    e.currentTarget.dataset.fallback = "1";
+                    e.currentTarget.src = imgSrc("");
+                  }
+                }}
+              />
+              <div className="text-xs mt-2 text-center font-medium">{p.name}</div>
+              <div className="text-[10px] text-slate-500">{toIDR(priceOf(p, basePrice))}</div>
+            </motion.div>
+          ))}
+        </div>
       </div>
     </motion.div>
   </div>
 </section>
+
 
             <h1 className="text-3xl md:text-5xl font-extrabold leading-tight">
               Sayur Fresh Serba {toIDR(basePrice)}<br/>Gaya Startup, Harga Merakyat.
