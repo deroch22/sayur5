@@ -183,7 +183,7 @@ const items = useMemo(() => {
       const qty = Number.parseInt(q, 10) || 0;
       const p = products.find(x => x.id === id);
       if (!p) return null;
-      const cat = normalizeCategory(p.category);
+       = normalizeCategory(p.category);
 
       // harga “referensi”/display per item (untuk ambil3 hanya estimasi)
       const price =
@@ -379,6 +379,10 @@ const subtotal = useMemo(() => {
         <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           <AnimatePresence>
             {filtered.map((p) => (
+
+            const cat = normalizeCategory(p.category);
+            const isAmbil3 = cat === "ambil3";
+  
               <motion.div key={p.id} id={`prod-${p.id}`} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                 <Card className="rounded-2xl overflow-hidden group">
                   <CardHeader className="p-0">
@@ -407,9 +411,18 @@ const subtotal = useMemo(() => {
 
   {/* Harga + stok + (opsional) berat */}
   <div className="mt-3 flex items-center justify-between gap-3">
-    <div className="font-extrabold whitespace-nowrap">
-      {toIDR(priceOf(p, basePrice))}
-    </div>
+  <div className="font-extrabold whitespace-nowrap">
+    {isAmbil3 ? (
+      <span className="text-emerald-700 font-semibold">Pilih 3 item</span>
+    ) : (
+      toIDR(priceOf(p, basePrice))
+    )}
+  </div>
+  <div className="text-xs text-slate-500">
+    Stok: {Number.isFinite(+p.stock) ? +p.stock : 0}
+  </div>
+</div>
+
     <div className="text-xs text-slate-500 flex items-center gap-2">
       <span>Stok: {Number.isFinite(+p.stock) ? +p.stock : 0}</span>
       {p.weight && <span>• {p.weight}</span>}
@@ -417,11 +430,11 @@ const subtotal = useMemo(() => {
   </div>
 
   {/* Badge kategori */}
-  <div className="mt-1">
-    <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-      {catLabel(normalizeCategory(p.category))}
-    </span>
-  </div>
+    <div className="mt-1">
+  <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+    {catLabel(cat)}
+  </span>
+</div>
 
   {/* Tombol tambah / qty */}
   <div className="mt-3 flex gap-2">
