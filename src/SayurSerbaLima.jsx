@@ -195,10 +195,18 @@ const items = useMemo(() => {
     .filter(it => it.qty > 0);
 }, [cart, products, basePrice]);
 
-  const bundleViolation = useMemo(
-  () => items.some(it => it.category === "ambil3" && (it.qty % PACK_SIZE_AMBIL3 !== 0)),
+  // Total item kategori ambil3 (boleh campur produk)
+const ambil3Total = useMemo(
+  () => items.filter(it => it.category === "ambil3").reduce((s, it) => s + it.qty, 0),
   [items]
 );
+
+// Pelanggaran kalau ada item ambil3 tapi totalnya bukan kelipatan 3
+const bundleViolation = useMemo(
+  () => ambil3Total > 0 && (ambil3Total % PACK_SIZE_AMBIL3 !== 0),
+  [ambil3Total]
+);
+
 
 // subtotal hitung paket untuk ambil3
 const subtotal = useMemo(() => {
@@ -392,6 +400,11 @@ const subtotal = useMemo(() => {
                     <CardTitle className="text-base font-semibold leading-tight">{p.name || p.id}</CardTitle>
                     <div className="text-xs text-slate-500 mt-1 line-clamp-2">{p.desc || "—"}</div>
                     <div className="mt-3 flex items-center justify-between">
+                      {(p.category === "ambil3") && (
+                        <div className="mt-1 text-[11px] text-emerald-700">
+                          ≈ {toIDR((PACK_PRICE_AMBIL3) / PACK_SIZE_AMBIL3)} / item
+                        </div>
+                      )}
   
                         <div className="font-extrabold">{toIDR(priceOf(p, basePrice))}</div>
                       )}
@@ -793,6 +806,12 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
           </div>
         </div>
       </div>
+
+      {bundleViolation && (
+        <div className="mt-2 text-xs text-red-600">
+          Kategori <b>Ambil 3 Rp10k</b> harus total kelipatan 3 (boleh campur produk).
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-2 mt-1">
         <a
