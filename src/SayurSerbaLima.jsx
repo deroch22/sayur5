@@ -210,8 +210,6 @@ const subtotal = useMemo(() => {
   }, 0);
 }, [items]);
 
-
-  const subtotal = useMemo(() => items.reduce((s, it) => s + it.qty * it.price, 0), [items]);
   const shippingFlat = useMemo(() => computeShippingFee(subtotal, freeOngkirMin, ongkir), [subtotal, freeOngkirMin, ongkir]);
   const grandTotalFlat = subtotal + shippingFlat;
   const totalQty = useMemo(() => items.reduce((s, it) => s + it.qty, 0), [items]);
