@@ -182,8 +182,9 @@ const items = useMemo(() => {
     .map(([id, q]) => {
       const qty = Number.parseInt(q, 10) || 0;
       const p = products.find(x => x.id === id);
-      if (!p) return null;
-       = normalizeCategory(p.category);
+if (!p) return null;
+const cat = normalizeCategory(p.category); // ✅ pakai 'const'
+
 
       // harga “referensi”/display per item (untuk ambil3 hanya estimasi)
       const price =
