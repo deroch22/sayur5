@@ -36,6 +36,14 @@ const PACK_SIZE_AMBIL3 = 3;
 const PRICE_AMBIL3 = 10000;
 const UNIT_PRICE_AMBIL3  = Math.round(PACK_PRICE_AMBIL3 / PACK_SIZE_AMBIL3); // ≈ 3333
 
+function priceOf(p, basePrice) {
+  if ((p?.category || "").toLowerCase() === "ambil3") return UNIT_PRICE_AMBIL3;
+  return (typeof p?.price === "number" && p.price > 0) ? p.price : basePrice;
+}
+
+
+
+
 export function normalizeCategory(c = "") {
   const v = String(c || "").toLowerCase().trim();
   if (["serba5k","serba5","serba","small"].includes(v)) return "serba5k";
@@ -69,12 +77,7 @@ const STARTER_PRODUCTS = [
 const computeShippingFee = (subtotal, freeMin, fee) =>
   subtotal === 0 || subtotal >= freeMin ? 0 : fee;
 
-function priceOf(p, basePrice) {
-  if ((p?.category || "").toLowerCase() === "ambil3") return UNIT_PRICE_AMBIL3;
-  return (typeof p?.price === "number" && p.price > 0) ? p.price : basePrice;
-}
-
-
+const priceOf = (p, basePrice) => (typeof p?.price === "number" && p.price > 0 ? p.price : basePrice);
 
 const toWA = (msisdn) => {
   let d = String(msisdn || "").replace(/\D/g, "");
