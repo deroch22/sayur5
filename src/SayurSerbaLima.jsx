@@ -34,6 +34,7 @@ export function catLabel(v) {
 // Alias lama -> standar
 const PACK_SIZE_AMBIL3 = 3;
 const PRICE_AMBIL3 = 10000;
+const UNIT_PRICE_AMBIL3  = Math.round(PACK_PRICE_AMBIL3 / PACK_SIZE_AMBIL3); // ≈ 3333
 
 export function normalizeCategory(c = "") {
   const v = String(c || "").toLowerCase().trim();
@@ -68,7 +69,11 @@ const STARTER_PRODUCTS = [
 const computeShippingFee = (subtotal, freeMin, fee) =>
   subtotal === 0 || subtotal >= freeMin ? 0 : fee;
 
-const priceOf = (p, basePrice) => (typeof p?.price === "number" && p.price > 0 ? p.price : basePrice);
+function priceOf(p, basePrice) {
+  if (p?.category === "ambil3") return UNIT_PRICE_AMBIL3;       // harga per item khusus paket 3=10k
+  return (typeof p?.price === "number" && p.price > 0) ? p.price : basePrice;
+}
+
 
 const toWA = (msisdn) => {
   let d = String(msisdn || "").replace(/\D/g, "");
