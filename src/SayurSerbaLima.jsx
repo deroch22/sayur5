@@ -382,7 +382,7 @@ const subtotal = useMemo(() => {
              {filtered.map((p) => {
               const cat = normalizeCategory(p.category);
               const isAmbil3 = cat === "ambil3";
-              const priceRef = priceOf(p, basePrice); // (opsional, buat display)
+             
 
                 // harga referensi (untuk display; ambil3 akan diganti teks)
                 const priceRef = priceOf(p, basePrice);
