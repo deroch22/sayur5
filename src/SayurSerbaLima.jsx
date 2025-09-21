@@ -276,8 +276,8 @@ export default function SayurSerbaLima() {
           <span>🥬</span>
           <span>🍅</span>
         </div>
-        <div className="mt-4 md:mt-6 text-center text-emerald-700 font-semibold">
-          Segarnya kerasa, harganya pas.
+        <div className="mt-4 md:mt-6 text-center text-emerald-700 font-semibold text-xl md:text-2xl">
+          🔥 Ambil 3 cuma Rp10.000 🔥
         </div>
       </div>
     </motion.div>
