@@ -39,12 +39,6 @@ const CATEGORY_OPTIONS = [
 
 export const catLabel = (v) => (CATEGORY_OPTIONS.find(x => x.value === v)?.label ?? v ?? "-");
 
-
-function catLabel(v) {
-  const f = CATEGORY_OPTIONS.find((x) => x.value === v);
-  return f ? f.label : v || "-";
-}
-
 const STARTER_PRODUCTS = [
   { id: "bayam", name: "Bayam Fresh", desc: "Dipetik pagi, siap masak bening.", stock: 50, category: "serba5k" },
   { id: "kangkung", name: "Kangkung", desc: "Crispy untuk cah bawang.", stock: 60, category: "serba5k" },
