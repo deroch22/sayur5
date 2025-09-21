@@ -378,90 +378,78 @@ const subtotal = useMemo(() => {
 
         <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           <AnimatePresence>
-            {filtered.map((p) => (
+             {filtered.map((p) => {
+                // hitung per-item (letakkan di awal callback map)
+                const cat = normalizeCategory(p.category);
+                const isAmbil3 = (cat === "ambil3");
+              
+                // harga referensi (untuk display; ambil3 akan diganti teks)
+                const priceRef = priceOf(p, basePrice);
+              
+                return (
+                  <motion.div key={p.id} id={`prod-${p.id}`} layout initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
+                    <Card className="rounded-2xl overflow-hidden group">
+                      <CardHeader className="p-0">
+                        <div className="h-28 bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center">
+                          <img
+                            src={imgSrc(p.image)}
+                            alt={p.name}
+                            className="h-28 w-28 object-cover rounded-xl"
+                            onError={(e) => {
+                              if (!e.currentTarget.dataset.fallback) {
+                                e.currentTarget.dataset.fallback = "1";
+                                e.currentTarget.src = imgSrc("");
+                              }
+                            }}
+                          />
+                        </div>
+                      </CardHeader>
+              
+                      <CardContent className="p-4">
+                        <CardTitle className="text-base font-semibold leading-tight">
+                          {p.name || p.id}
+                        </CardTitle>
+                        <div className="text-xs text-slate-500 mt-1 line-clamp-2">{p.desc || "—"}</div>
+              
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <div className="font-extrabold whitespace-nowrap">
+                            {isAmbil3 ? (
+                              <span className="text-emerald-700 font-semibold">Pilih 3 item</span>
+                            ) : (
+                              toIDR(priceRef)
+                            )}
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            Stok: {Number.isFinite(+p.stock) ? +p.stock : 0}
+                          </div>
+                        </div>
+              
+                        <div className="mt-1">
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                            {catLabel(cat)}
+                          </span>
+                        </div>
+              
+                        <div className="mt-3 flex gap-2">
+                          <Button className="rounded-xl flex-1" onClick={() => add(p.id)}>Tambah</Button>
+                          {cart[p.id] ? (
+                            <div className="flex items-center border rounded-xl overflow-hidden">
+                              <Button size="icon" variant="ghost" onClick={() => sub(p.id)}><Minus className="w-4 h-4" /></Button>
+                              <div className="px-2 w-8 text-center font-semibold">{cart[p.id]}</div>
+                              <Button size="icon" variant="ghost" onClick={() => add(p.id)}><Plus className="w-4 h-4" /></Button>
+                            </div>
+                          ) : (
+                            <Button variant="outline" className="rounded-xl" onClick={() => add(p.id)} size="icon">
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+})}
 
-            const cat = normalizeCategory(p.category);
-            const isAmbil3 = cat === "ambil3";
-  
-              <motion.div key={p.id} id={`prod-${p.id}`} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                <Card className="rounded-2xl overflow-hidden group">
-                  <CardHeader className="p-0">
-                    <div className="h-28 bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center">
-                      <img
-                        src={imgSrc(p.image)} alt={p.name}
-                        className="h-28 w-28 object-cover rounded-xl"
-                        loading="lazy" decoding="async"
-                        onError={(e) => {
-                          if (!e.currentTarget.dataset.fallback) {
-                            e.currentTarget.dataset.fallback = "1";
-                            e.currentTarget.src = imgSrc("");
-                          }
-                        }}
-                      />
-                    </div>
-                  </CardHeader>
-                 <CardContent className="p-4">
-  <CardTitle className="text-base font-semibold leading-tight">
-    {p.name || p.id}
-  </CardTitle>
-
-  <div className="text-xs text-slate-500 mt-1 line-clamp-2">
-    {p.desc || "—"}
-  </div>
-
-  {/* Harga + stok + (opsional) berat */}
-  <div className="mt-3 flex items-center justify-between gap-3">
-  <div className="font-extrabold whitespace-nowrap">
-    {isAmbil3 ? (
-      <span className="text-emerald-700 font-semibold">Pilih 3 item</span>
-    ) : (
-      toIDR(priceOf(p, basePrice))
-    )}
-  </div>
-  <div className="text-xs text-slate-500">
-    Stok: {Number.isFinite(+p.stock) ? +p.stock : 0}
-  </div>
-</div>
-
-    <div className="text-xs text-slate-500 flex items-center gap-2">
-      <span>Stok: {Number.isFinite(+p.stock) ? +p.stock : 0}</span>
-      {p.weight && <span>• {p.weight}</span>}
-    </div>
-  </div>
-
-  {/* Badge kategori */}
-    <div className="mt-1">
-  <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-    {catLabel(cat)}
-  </span>
-</div>
-
-  {/* Tombol tambah / qty */}
-  <div className="mt-3 flex gap-2">
-    <Button className="rounded-xl flex-1" onClick={() => add(p.id)}>
-      Tambah
-    </Button>
-    {cart[p.id] ? (
-      <div className="flex items-center border rounded-xl overflow-hidden">
-        <Button size="icon" variant="ghost" onClick={() => sub(p.id)}>
-          <Minus className="w-4 h-4" />
-        </Button>
-        <div className="px-2 w-8 text-center font-semibold">{cart[p.id]}</div>
-        <Button size="icon" variant="ghost" onClick={() => add(p.id)}>
-          <Plus className="w-4 h-4" />
-        </Button>
-      </div>
-    ) : (
-      <Button variant="outline" className="rounded-xl" onClick={() => add(p.id)} size="icon">
-        <Plus className="w-4 h-4" />
-      </Button>
-    )}
-  </div>
-</CardContent>
-
-                </Card>
-              </motion.div>
-            ))}
           </AnimatePresence>
         </div>
       </section>
