@@ -14,30 +14,25 @@ const ADMIN_PIN_FALLBACK = "555622";
 const DEFAULT_BASE_PRICE = 5000;
 const DEFAULT_IMG = "img/default.jpg";
 
-// KATEGORI
-const CATEGORY_OPTIONS = [
-  { value: "serba5k", label: "Serba 5.000 (250g)" },
-  { value: "ambil3", label: "Ambil 3 Rp 10.000 (200g/item)" },
-  { value: "siapMasak", label: "Paket Siap Masak Rp 10.000" },
+// ==== KATEGORI (shared) ====
+export const CATEGORY_OPTIONS = [
+  { value: "serba5k",   label: "Serba 5k" },
+  { value: "ambil3",    label: "Paket 10k" },      // 3 item Rp10k
+  { value: "siapMasak", label: "Siap masak" },
 ];
-function catLabel(v) {
-  const f = CATEGORY_OPTIONS.find((x) => x.value === v);
-  return f ? f.label : v || "-";
+
+export function catLabel(v) {
+  const f = CATEGORY_OPTIONS.find(x => x.value === v);
+  return f ? f.label : "-";
 }
 
-// simpan ke localStorage dengan guard
-function safeSetItem(key, val) {
-  try {
-    localStorage.setItem(key, val);
-    return true;
-  } catch (e) {
-    console.warn("[localStorage] gagal set", key, e);
-    alert("Penyimpanan browser penuh. Kurangi ukuran/jumlah gambar.");
-    return false;
-  }
-}
-function safeJSONSetItem(key, obj) {
-  return safeSetItem(key, JSON.stringify(obj));
+// Map semua alias lama -> key baru (backward compatible)
+export function normalizeCategory(c = "") {
+  const v = String(c || "").toLowerCase().trim();
+  if (["serba5k","serba5","serba","small"].includes(v)) return "serba5k";
+  if (["ambil3","triple","triple10k","triplehemat","medium","3for10k","3x10k"].includes(v)) return "ambil3";
+  if (["siapmasak","siap-masak","bundle","paket","paket10k"].includes(v)) return "siapMasak";
+  return "serba5k"; // default
 }
 
 // ubah URL hasil upload R2 ke endpoint proxy /api/file?key=uploads/...
@@ -131,9 +126,7 @@ function parseCSV(text) {
     const image =
       rec.image || rec.gambar || rec.foto || rec.photo || rec.url || "";
     const catRaw = (rec.category || rec.kategori || rec.cat || "").toLowerCase();
-    const category = CATEGORY_OPTIONS.some((c) => c.value === catRaw)
-      ? catRaw
-      : "serba5k";
+    const category = normalizeCategory(catRaw);
     const priceRaw = parseInt(rec.price || rec.harga || "", 10);
     const price = Number.isFinite(priceRaw) ? priceRaw : undefined;
 
@@ -189,21 +182,20 @@ export default function AdminPanel() {
   );
 
   // Produk
-  const [products, setProducts] = useState(() => {
-    try {
-      const raw = localStorage.getItem("sayur5_products");
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      localStorage.removeItem("sayur5_products");
-      return [];
-    }
-  });
+const [products, setProducts] = useState(() => {
+  const raw = readJSON("sayur5_products", STARTER_PRODUCTS);
+  return (raw || []).map(p => ({ ...p, category: normalizeCategory(p.category) }));
+});
+
   useEffect(() => {
     fetch("https://sayur5-bl6.pages.dev/api/products", { mode: "cors" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.statusText))))
-      .then((data) => {
-        if (Array.isArray(data)) setProducts(data);
+      .then(data => {
+        if (Array.isArray(data)) {
+          setProducts(data.map(p => ({ ...p, category: normalizeCategory(p.category) })));
+        }
       })
+
       .catch(() => {});
   }, []);
 
@@ -545,9 +537,9 @@ function AddProductForm({ pin, products, setProducts, basePrice }) {
             const toSave = {
               id,
               ...form,
-              image: normalizeImage(form.image),
-              category: form.category || "serba5k",
+              category: normalizeCategory(form.category || "serba5k"),
             };
+
             setProducts([toSave, ...products]);
             setForm({
               name: "",
@@ -613,13 +605,12 @@ function ProductsManager({ products, setProducts }) {
               <div className="md:col-span-2">
                 <div>Kategori</div>
                 <select
-                  value={p.category || "serba5k"}
-                  onChange={(e) => update(p.id, { category: e.target.value })}
+                  value={normalizeCategory(p.category)}
+                  onChange={(e) => update(p.id, { category: normalizeCategory(e.target.value) })}
+                  className="border rounded-xl px-3 py-2 w-full"
                 >
-                  {CATEGORY_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
+                  {CATEGORY_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
               </div>
