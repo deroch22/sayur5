@@ -392,12 +392,7 @@ const subtotal = useMemo(() => {
                     <CardTitle className="text-base font-semibold leading-tight">{p.name || p.id}</CardTitle>
                     <div className="text-xs text-slate-500 mt-1 line-clamp-2">{p.desc || "—"}</div>
                     <div className="mt-3 flex items-center justify-between">
-                      {p.category && normalizeCategory(p.category) === "ambil3" ? (
-                        <div className="text-sm leading-tight">
-                          <div className="font-semibold">Ambil {PACK_SIZE_AMBIL3} Rp {PRICE_AMBIL3.toLocaleString("id-ID")}</div>
-                          <div className="text-[11px] text-slate-500">≈ {toIDR(Math.round(PRICE_AMBIL3 / PACK_SIZE_AMBIL3))} / item</div>
-                        </div>
-                      ) : (
+  
                         <div className="font-extrabold">{toIDR(priceOf(p, basePrice))}</div>
                       )}
                       <div className="text-xs text-slate-500">
