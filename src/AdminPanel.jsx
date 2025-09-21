@@ -14,6 +14,17 @@ const ADMIN_PIN_FALLBACK = "555622";
 const DEFAULT_BASE_PRICE = 5000;
 const DEFAULT_IMG = "img/default.jpg";
 
+// KATEGORI
+const CATEGORY_OPTIONS = [
+  { value: "serba5k", label: "Serba 5.000 (250g)" },
+  { value: "ambil3", label: "Ambil 3 Rp 10.000 (200g/item)" },
+  { value: "siapMasak", label: "Paket Siap Masak Rp 10.000" },
+];
+function catLabel(v) {
+  const f = CATEGORY_OPTIONS.find((x) => x.value === v);
+  return f ? f.label : v || "-";
+}
+
 // simpan ke localStorage dengan guard
 function safeSetItem(key, val) {
   try {
@@ -24,10 +35,14 @@ function safeSetItem(key, val) {
     alert("Penyimpanan browser penuh. Kurangi ukuran/jumlah gambar.");
     return false;
   }
-  
+}
+function safeJSONSetItem(key, obj) {
+  return safeSetItem(key, JSON.stringify(obj));
+}
+
+// ubah URL hasil upload R2 ke endpoint proxy /api/file?key=uploads/...
 function toProxyFromR2(u = "") {
   try {
-    // ambil path setelah "uploads/..."
     const url = new URL(u);
     const parts = url.pathname.split("/").filter(Boolean);
     const idx = parts.indexOf("uploads");
@@ -35,17 +50,10 @@ function toProxyFromR2(u = "") {
       const key = parts.slice(idx).join("/");
       return `/api/file?key=${encodeURIComponent(key)}`;
     }
-    // fallback: kalau pola tak ketemu, biarkan apa adanya
     return u;
   } catch {
     return u;
   }
-}
-
-  
-}
-function safeJSONSetItem(key, obj) {
-  return safeSetItem(key, JSON.stringify(obj));
 }
 
 // buat slug id dari nama produk
@@ -64,7 +72,6 @@ function makeUniqueId(base, products) {
   while (products.some((p) => p.id === `${id}-${i}`)) i++;
   return `${id}-${i}`;
 }
-
 function todayKey(d = new Date()) {
   return d.toISOString().slice(0, 10);
 }
@@ -75,7 +82,9 @@ function parseCSV(text) {
   if (!rows.length) return [];
   const first = rows[0].toLowerCase();
   const hasHeader =
-    /id|name|nama|desc|deskripsi|stock|stok|image|gambar|foto|url|price|harga/.test(first);
+    /id|name|nama|desc|deskripsi|stock|stok|image|gambar|foto|url|price|harga|category|kategori|cat/.test(
+      first
+    );
   const start = hasHeader ? 1 : 0;
 
   const splitLine = (line) => {
@@ -101,22 +110,30 @@ function parseCSV(text) {
 
   const header = hasHeader
     ? splitLine(rows[0]).map((h) => h.toLowerCase())
-    : ["id", "name", "desc", "stock", "image", "price"];
+    : ["id", "name", "desc", "stock", "image", "price", "category"];
 
   const out = [];
   for (let i = start; i < rows.length; i++) {
     const cols = splitLine(rows[i]);
     const rec = {};
     header.forEach((h, idx) => (rec[h] = cols[idx]));
+
     const id =
-      (rec.id ||
+      (
+        rec.id ||
         rec.kode ||
         rec.sku ||
-        (rec.name || rec.nama || "").toLowerCase().replace(/\s+/g, "-"))?.toLowerCase() || "";
+        (rec.name || rec.nama || "").toLowerCase().replace(/\s+/g, "-")
+      )?.toLowerCase() || "";
     const name = rec.name || rec.nama || id || "produk";
     const desc = rec.desc || rec.deskripsi || "";
     const stock = parseInt(rec.stock || rec.stok || 0, 10) || 0;
-    const image = rec.image || rec.gambar || rec.foto || rec.photo || rec.url || "";
+    const image =
+      rec.image || rec.gambar || rec.foto || rec.photo || rec.url || "";
+    const catRaw = (rec.category || rec.kategori || rec.cat || "").toLowerCase();
+    const category = CATEGORY_OPTIONS.some((c) => c.value === catRaw)
+      ? catRaw
+      : "serba5k";
     const priceRaw = parseInt(rec.price || rec.harga || "", 10);
     const price = Number.isFinite(priceRaw) ? priceRaw : undefined;
 
@@ -126,6 +143,7 @@ function parseCSV(text) {
       desc,
       stock,
       image,
+      category,
     };
     if (price !== undefined) recOut.price = price;
     out.push(recOut);
@@ -133,7 +151,7 @@ function parseCSV(text) {
   return out;
 }
 
-// bersihkan nilai image: kalau base64/blob → kosongkan agar fallback default
+// bersihkan nilai image
 function normalizeImage(s) {
   const v = (s || "").trim();
   if (!v || v.startsWith("data:") || v.startsWith("blob:")) return "";
@@ -142,7 +160,6 @@ function normalizeImage(s) {
 
 /* ====== KOMPONEN UTAMA ====== */
 export default function AdminPanel() {
-  // --- Auth PIN ---
   const [pin, setPin] = useState("");
   const [authed, setAuthed] = useState(false);
   const ADMIN_PIN =
@@ -151,9 +168,12 @@ export default function AdminPanel() {
       import.meta.env.VITE_ADMIN_PIN) ||
     ADMIN_PIN_FALLBACK;
 
-  // --- Pengaturan toko ---
+  // Pengaturan toko
   const [basePrice, setBasePrice] = useState(() => {
-    const v = parseInt(localStorage.getItem("sayur5_price") || String(DEFAULT_BASE_PRICE), 10);
+    const v = parseInt(
+      localStorage.getItem("sayur5_price") || String(DEFAULT_BASE_PRICE),
+      10
+    );
     return Number.isFinite(v) ? v : DEFAULT_BASE_PRICE;
   });
   const [freeOngkirMin, setFreeOngkirMin] = useState(() => {
@@ -168,7 +188,7 @@ export default function AdminPanel() {
     () => localStorage.getItem("sayur5_storePhone") || "6281233115194"
   );
 
-  // --- Data lokal (cache) ---
+  // Produk
   const [products, setProducts] = useState(() => {
     try {
       const raw = localStorage.getItem("sayur5_products");
@@ -178,14 +198,16 @@ export default function AdminPanel() {
       return [];
     }
   });
-useEffect(() => {
-  fetch("https://sayur5-bl6.pages.dev/api/products", { mode: "cors" })
-    .then(r => r.ok ? r.json() : Promise.reject(new Error(r.statusText)))
-    .then(data => { if (Array.isArray(data)) setProducts(data); })
-    .catch(() => { /* biarkan pakai localStorage */ });
-}, []);
+  useEffect(() => {
+    fetch("https://sayur5-bl6.pages.dev/api/products", { mode: "cors" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.statusText))))
+      .then((data) => {
+        if (Array.isArray(data)) setProducts(data);
+      })
+      .catch(() => {});
+  }, []);
 
-  
+  // Orders
   const [orders, setOrders] = useState(() => {
     try {
       const raw = localStorage.getItem("sayur5_orders");
@@ -196,17 +218,28 @@ useEffect(() => {
     }
   });
 
-  // --- Persist lokal dengan guard (pastikan setelah state dideklarasi) ---
-  useEffect(() => { safeJSONSetItem("sayur5_products", products); }, [products]);
-  useEffect(() => { safeJSONSetItem("sayur5_orders", orders); }, [orders]);
-  useEffect(() => { safeSetItem("sayur5_price", String(basePrice)); }, [basePrice]);
-  useEffect(() => { safeSetItem("sayur5_freeMin", String(freeOngkirMin)); }, [freeOngkirMin]);
-  useEffect(() => { safeSetItem("sayur5_ongkir", String(ongkir)); }, [ongkir]);
-  useEffect(() => { safeSetItem("sayur5_storePhone", storePhone); }, [storePhone]);
+  // persist
+  useEffect(() => {
+    safeJSONSetItem("sayur5_products", products);
+  }, [products]);
+  useEffect(() => {
+    safeJSONSetItem("sayur5_orders", orders);
+  }, [orders]);
+  useEffect(() => {
+    safeSetItem("sayur5_price", String(basePrice));
+  }, [basePrice]);
+  useEffect(() => {
+    safeSetItem("sayur5_freeMin", String(freeOngkirMin));
+  }, [freeOngkirMin]);
+  useEffect(() => {
+    safeSetItem("sayur5_ongkir", String(ongkir));
+  }, [ongkir]);
+  useEffect(() => {
+    safeSetItem("sayur5_storePhone", storePhone);
+  }, [storePhone]);
 
-  // --- API Cloudflare (Pages Functions) ---
+  // API Cloudflare
   const API_URL = (import.meta.env.VITE_API_URL ?? "").trim() || "/api/products";
-
   async function loadFromCloud() {
     try {
       const r = await fetch(API_URL, { mode: "cors" });
@@ -217,10 +250,8 @@ useEffect(() => {
       alert("Katalog dimuat dari Cloudflare KV.");
     } catch (e) {
       alert("Gagal load: " + e.message);
-      console.error(e);
     }
   }
-
   async function publishToCloud() {
     try {
       const r = await fetch(API_URL, {
@@ -236,10 +267,8 @@ useEffect(() => {
       alert("Katalog berhasil dipublish ke Cloudflare KV.");
     } catch (e) {
       alert("Gagal publish: " + e.message);
-      console.error(e);
     }
   }
-
   function stripBase64Images() {
     setProducts((prev) =>
       prev.map((p) => ({
@@ -248,15 +277,13 @@ useEffect(() => {
       }))
     );
   }
-
-  // Auto-load setelah login
   useEffect(() => {
     if (authed) loadFromCloud().catch(() => {});
   }, [authed]);
 
   const login = () => (pin === ADMIN_PIN ? setAuthed(true) : alert("PIN salah"));
 
-  /* ====== RENDER: Halaman PIN ====== */
+  /* ====== UI ====== */
   if (!authed) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
@@ -274,7 +301,6 @@ useEffect(() => {
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               placeholder="PIN"
-              className="max-w-xs"
             />
             <Button onClick={login}>Masuk</Button>
           </div>
@@ -283,7 +309,6 @@ useEffect(() => {
     );
   }
 
-  /* ====== RENDER: Isi Admin ====== */
   return (
     <div className="min-h-screen p-6 bg-slate-50">
       <div className="max-w-5xl mx-auto space-y-8">
@@ -311,7 +336,9 @@ useEffect(() => {
                 type="number"
                 value={basePrice}
                 onChange={(e) =>
-                  setBasePrice(Math.max(0, parseInt(e.target.value || "0", 10)))
+                  setBasePrice(
+                    Math.max(0, parseInt(e.target.value || "0", 10))
+                  )
                 }
               />
             </label>
@@ -321,7 +348,9 @@ useEffect(() => {
                 type="number"
                 value={freeOngkirMin}
                 onChange={(e) =>
-                  setFreeOngkirMin(Math.max(0, parseInt(e.target.value || "0", 10)))
+                  setFreeOngkirMin(
+                    Math.max(0, parseInt(e.target.value || "0", 10))
+                  )
                 }
               />
             </label>
@@ -344,9 +373,6 @@ useEffect(() => {
               />
             </label>
           </div>
-          <div className="text-xs text-slate-500 mt-2">
-            *Tersimpan di browser (localStorage). Frontstore membaca ini saat runtime.
-          </div>
         </section>
 
         {/* Tambah Produk */}
@@ -362,7 +388,7 @@ useEffect(() => {
 
         {/* Daftar Produk */}
         <section className="border rounded-2xl p-4 bg-white">
-          <h3 className="font-semibold mb-3">Daftar Produk (Edit / Hapus)</h3>
+          <h3 className="font-semibold mb-3">Daftar Produk</h3>
           <ProductsManager products={products} setProducts={setProducts} />
         </section>
 
@@ -397,6 +423,7 @@ function AddProductForm({ pin, products, setProducts, basePrice }) {
     desc: "",
     stock: 20,
     price: basePrice ?? DEFAULT_BASE_PRICE,
+    category: "serba5k",
   });
   const [uploading, setUploading] = useState(false);
   const canAdd = form.name.trim().length > 0;
@@ -413,7 +440,7 @@ function AddProductForm({ pin, products, setProducts, basePrice }) {
         />
       </label>
       <label className="grid gap-1 text-sm md:col-span-1">
-        <span>Harga (IDR)</span>
+        <span>Harga</span>
         <Input
           type="number"
           value={form.price}
@@ -434,6 +461,20 @@ function AddProductForm({ pin, products, setProducts, basePrice }) {
           }}
         />
       </label>
+      <label className="grid gap-1 text-sm md:col-span-1">
+        <span>Kategori</span>
+        <select
+          className="border rounded-xl px-3 py-2"
+          value={form.category}
+          onChange={(e) => setForm({ ...form, category: e.target.value })}
+        >
+          {CATEGORY_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <div className="md:col-span-5 grid md:grid-cols-3 gap-2 items-end">
         <div className="flex items-center gap-3">
@@ -441,23 +482,16 @@ function AddProductForm({ pin, products, setProducts, basePrice }) {
             src={imgSrc(form.image || DEFAULT_IMG)}
             alt="preview"
             className="w-16 h-16 object-cover rounded-lg border"
-                       onError={(e) => {
-              if (!e.currentTarget.dataset.fallback) {
-                e.currentTarget.dataset.fallback = "1";
-                e.currentTarget.src = imgSrc(""); // fallback default.jpg
-              }
-            }}
           />
           <div className="grid gap-1 text-sm flex-1">
             <span>URL Gambar</span>
             <Input
-              placeholder="https://... (disarankan URL R2) atau img/nama-file.jpg"
+              placeholder="https://..."
               value={form.image}
               onChange={(e) => setForm({ ...form, image: e.target.value })}
             />
           </div>
         </div>
-
         <div>
           <input
             id={fileId}
@@ -467,38 +501,25 @@ function AddProductForm({ pin, products, setProducts, basePrice }) {
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
-            
               setUploading(true);
               try {
-                // upload ke R2 via /api/upload
                 const { key, url } = await uploadToR2(file, pin);
-            
-                // tentukan URL akhir yang aman dipakai <img>
-                const finalUrl = /^https?:\/\//.test(url || "")
-                  ? url
-                  : `${PAGES_ORIGIN}/api/file?key=${encodeURIComponent(key)}`;
-
-            
-                // simpan ke form → preview langsung pakai URL ini
+                const fallback = `${PAGES_ORIGIN}/api/file?key=${encodeURIComponent(
+                  key
+                )}`;
+                const finalUrl = toProxyFromR2(url || fallback);
                 setForm((s) => ({ ...s, image: finalUrl }));
-            
-                // opsional: cek di console
-                console.log({ key, url, finalUrl });
               } catch (err) {
-                console.error(err);
                 alert("Upload gagal: " + (err?.message || err));
-                // JANGAN pakai finalUrl di sini
               } finally {
                 setUploading(false);
               }
             }}
-
           />
           <Button
             type="button"
             disabled={uploading}
             onClick={() => document.getElementById(fileId).click()}
-            className="rounded-xl inline-flex items-center gap-2"
           >
             <ImagePlus className="w-4 h-4" />
             {uploading ? "Mengunggah…" : "Upload Foto"}
@@ -507,9 +528,9 @@ function AddProductForm({ pin, products, setProducts, basePrice }) {
       </div>
 
       <label className="grid gap-1 text-sm md:col-span-5">
-        <span>Deskripsi (opsional)</span>
+        <span>Deskripsi</span>
         <Input
-          placeholder="panen pagi, segar untuk sop"
+          placeholder="deskripsi singkat"
           value={form.desc}
           onChange={(e) => setForm({ ...form, desc: e.target.value })}
         />
@@ -519,123 +540,139 @@ function AddProductForm({ pin, products, setProducts, basePrice }) {
         <Button
           disabled={!canAdd}
           onClick={() => {
-            // auto-generate id dari nama (unik)
             const base = slugify(form.name);
             const id = makeUniqueId(base, products);
-            const toSave = { id, ...form, image: normalizeImage(form.image) };
+            const toSave = {
+              id,
+              ...form,
+              image: normalizeImage(form.image),
+              category: form.category || "serba5k",
+            };
             setProducts([toSave, ...products]);
-            setForm({ name: "", image: "", desc: "", stock: 20, price: basePrice ?? DEFAULT_BASE_PRICE });
+            setForm({
+              name: "",
+              image: "",
+              desc: "",
+              stock: 20,
+              price: basePrice,
+              category: "serba5k",
+            });
           }}
         >
           Tambah Produk
         </Button>
-        {!canAdd && (
-          <span className="text-xs text-slate-500 ml-2">Isi nama produk dulu.</span>
-        )}
       </div>
     </div>
   );
 }
 
 function ProductsManager({ products, setProducts }) {
+  const [catFilter, setCatFilter] = useState("all");
   const update = (id, patch) =>
-    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+    setProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...patch } : p))
+    );
   const remove = (id) => {
     if (confirm("Hapus produk ini?"))
       setProducts((prev) => prev.filter((p) => p.id !== id));
   };
 
-  if (!products.length) return <div className="text-sm text-slate-500">Belum ada produk.</div>;
+  const shown = catFilter === "all"
+    ? products
+    : products.filter((p) => p.category === catFilter);
+
+  if (!products.length) return <div>Belum ada produk.</div>;
 
   return (
-    <div className="grid gap-2">
-      {products.map((p) => (
-        <Card key={p.id} className="rounded-2xl">
-          <CardContent className="p-3 grid md:grid-cols-12 gap-2 items-center">
-            <div className="md:col-span-1">
-              <img
-                src={imgSrc(p.image || DEFAULT_IMG)}
-                alt={p.name}
-                className="w-14 h-14 rounded-lg object-cover border"
-                 onError={(e) => {
-                  if (!e.currentTarget.dataset.fallback) {
-                    e.currentTarget.dataset.fallback = "1";
-                    e.currentTarget.src = imgSrc(""); // fallback default.jpg
+    <>
+      <div className="flex gap-2 mb-2">
+        {[{ v: "all", label: "Semua" }, ...CATEGORY_OPTIONS.map((o) => ({
+          v: o.value,
+          label: o.label,
+        }))].map((btn) => (
+          <Button
+            key={btn.v}
+            variant={catFilter === btn.v ? "default" : "outline"}
+            onClick={() => setCatFilter(btn.v)}
+          >
+            {btn.label}
+          </Button>
+        ))}
+      </div>
+      <div className="grid gap-2">
+        {shown.map((p) => (
+          <Card key={p.id}>
+            <CardContent className="p-3 grid md:grid-cols-12 gap-2 items-center">
+              <div className="md:col-span-1">
+                <img
+                  src={imgSrc(p.image || DEFAULT_IMG)}
+                  alt={p.name}
+                  className="w-14 h-14 object-cover rounded-lg border"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <div>Kategori</div>
+                <select
+                  value={p.category || "serba5k"}
+                  onChange={(e) => update(p.id, { category: e.target.value })}
+                >
+                  {CATEGORY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <div>Harga</div>
+                <Input
+                  type="number"
+                  value={p.price ?? ""}
+                  placeholder="harga"
+                  onChange={(e) =>
+                    update(p.id, {
+                      price:
+                        e.target.value === ""
+                          ? undefined
+                          : Math.max(0, parseInt(e.target.value || "0", 10)),
+                    })
                   }
-                }}
-                
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <div className="text-[11px] text-slate-500">ID (otomatis)</div>
-              <div className="text-xs font-mono break-all">{p.id}</div>
-            </div>
-
-            <div className="md:col-span-3">
-              <div className="text-[11px] text-slate-500">Nama</div>
-              <Input value={p.name} onChange={(e) => update(p.id, { name: e.target.value })} />
-            </div>
-
-            <div className="md:col-span-2">
-              <div className="text-[11px] text-slate-500">Harga</div>
-              <Input
-                type="number"
-                value={p.price ?? ""}
-                placeholder="(pakai harga dasar)"
-                onChange={(e) =>
-                  update(p.id, {
-                    price:
-                      e.target.value === ""
-                        ? undefined
-                        : Math.max(0, parseInt(e.target.value || "0", 10)),
-                  })
-                }
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <div className="text-[11px] text-slate-500">Stok</div>
-              <Input
-                type="number"
-                value={p.stock}
-                onChange={(e) =>
-                  update(p.id, {
-                    stock: Math.max(0, parseInt(e.target.value || "0", 10)),
-                  })
-                }
-              />
-            </div>
-
-            <div className="md:col-span-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => remove(p.id)}
-                className="rounded-xl"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-
-            <div className="md:col-span-12">
-              <div className="text-[11px] text-slate-500 mb-1">URL Gambar</div>
-              <Input
-                value={p.image || ""}
-                placeholder="https://... (R2) atau img/nama-file.jpg"
-                onChange={(e) => update(p.id, { image: normalizeImage(e.target.value) })}
-              />
-              <div className="text-[11px] text-slate-500 mt-2">Deskripsi</div>
-              <Input
-                value={p.desc || ""}
-                onChange={(e) => update(p.id, { desc: e.target.value })}
-                placeholder="deskripsi singkat"
-              />
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+                />
+              </div>
+              <div className="md:col-span-2">
+                <div>Stok</div>
+                <Input
+                  type="number"
+                  value={p.stock}
+                  onChange={(e) =>
+                    update(p.id, {
+                      stock: Math.max(0, parseInt(e.target.value || "0", 10)),
+                    })
+                  }
+                />
+              </div>
+              <div className="md:col-span-1">
+                <Button onClick={() => remove(p.id)}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="md:col-span-12">
+                <Input
+                  value={p.image || ""}
+                  onChange={(e) =>
+                    update(p.id, { image: normalizeImage(e.target.value) })
+                  }
+                />
+                <Input
+                  value={p.desc || ""}
+                  onChange={(e) => update(p.id, { desc: e.target.value })}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -678,8 +715,8 @@ function ImportCSV({ products, setProducts }) {
   };
 
   return (
-    <div className="grid gap-2 text-sm">
-      <div className="flex items-center gap-2">
+    <div>
+      <div className="flex gap-2">
         <input
           id={inputId}
           type="file"
@@ -687,15 +724,16 @@ function ImportCSV({ products, setProducts }) {
           className="hidden"
           onChange={(e) => e.target.files && onFile(e.target.files[0])}
         />
-        <Button onClick={() => document.getElementById(inputId).click()}>Import CSV</Button>
+        <Button onClick={() => document.getElementById(inputId).click()}>
+          Import CSV
+        </Button>
         <Button
           variant="outline"
           onClick={() => {
             const sample = [
               "id,name,desc,stock,image,price",
-              "bayam-merah,Bayam Merah,Panen pagi 250g,30,https://images.unsplash.com/photo-1543339308-43f2a5a7c8e8,5000",
-              "pakcoy,Pakcoy Hijau,Segar untuk tumisan,40,,6000",
-              "paprika-merah,Paprika Merah,Manis & renyah,25,https://images.unsplash.com/photo-1546471180-3ad1c6925f59,7000",
+              "bayam-merah,Bayam Merah,250g,30,https://...,5000",
+              "pakcoy,Pakcoy Hijau,Segar,40,,6000",
             ].join("\n");
             const blob = new Blob([sample], { type: "text/csv" });
             const url = URL.createObjectURL(blob);
@@ -703,31 +741,12 @@ function ImportCSV({ products, setProducts }) {
             a.href = url;
             a.download = "template_sayur5.csv";
             a.click();
-            URL.revokeObjectURL(url);
           }}
         >
           Unduh Template
         </Button>
-        <Button
-          variant="secondary"
-          onClick={() => {
-            setProducts(
-              products.map((p) => ({
-                ...p,
-                image: p.image && String(p.image).trim() ? p.image : DEFAULT_IMG,
-              }))
-            );
-            setStatus("Foto default diisi untuk produk tanpa gambar.");
-          }}
-        >
-          Isi Foto Default
-        </Button>
       </div>
-      {status && <div className="text-slate-600">{status}</div>}
-      <div className="text-xs text-slate-500">
-        Format: <code>id,name,desc,stock,image,price</code>. Kolom <code>image</code> boleh
-        kosong (akan pakai foto default) dan <code>price</code> opsional.
-      </div>
+      {status && <div>{status}</div>}
     </div>
   );
 }
@@ -766,5 +785,4 @@ function downloadCSV(orders) {
   a.href = url;
   a.download = `sayur5_orders_${todayKey()}.csv`;
   a.click();
-  URL.revokeObjectURL(url);
 }
