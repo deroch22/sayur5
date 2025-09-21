@@ -51,15 +51,6 @@ const toIDR = (n) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 })
     .format(Number.isFinite(n) ? n : 0);
 
-// ganti ini di file frontstore (SayurSerbaLima.jsx)
-const CATEGORY_OPTIONS = [
-  { value: "serba5k",  label: "Serba 5k" },
-  { value: "ambil3",   label: "Triple Hemat 10k" },
-  { value: "siapMasak",label: "Siap masak" },
-];
-
-export const catLabel = (v) => (CATEGORY_OPTIONS.find(x => x.value === v)?.label ?? v ?? "-");
-
 const STARTER_PRODUCTS = [
   { id: "bayam",    name: "Bayam Fresh", desc: "Dipetik pagi, siap masak bening.", stock: 50, category: "serba5k" },
   { id: "kangkung", name: "Kangkung",    desc: "Crispy untuk cah bawang.",       stock: 60, category: "serba5k" },
@@ -103,9 +94,6 @@ export default function SayurSerbaLima() {
   const [cart, setCart] = useState(() => readJSON("sayur5.cart", {}));
   const [openCheckout, setOpenCheckout] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
-
-  const [catFilter, setCatFilter] = useState("all");
-
   // Settings
   const [freeOngkirMin, setFreeOngkirMin] = useState(() => {
     const v = parseInt(readStr("sayur5_freeMin", "30000"), 10);
@@ -154,7 +142,7 @@ export default function SayurSerbaLima() {
     });
   }, [products]);
 
-  // Filtered products
+ 
   // state
 const [catFilter, setCatFilter] = useState("all");
 
