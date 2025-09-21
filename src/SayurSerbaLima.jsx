@@ -204,78 +204,7 @@ export default function SayurSerbaLima() {
               </div>
               <div className="md:hidden"><CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} /></div>
             </div>
-            {/* === Promo Banner + Chips + Visual pendek === */}
-<div className="mt-3 space-y-3">
-
-  {/* 1) Promo Banner */}
-  <div className="rounded-2xl border bg-white shadow-sm/50 p-3 md:p-4 flex items-center gap-3 md:gap-4">
-    <div className="flex-1 min-w-0">
-      <div className="text-sm md:text-base font-semibold">
-        Ambil 3 cuma <span className="text-emerald-700">Rp10.000</span>
-      </div>
-      <div className="text-xs text-slate-500">stok terbatas tiap hari</div>
-    </div>
-    <a
-      href="#catalog"
-      className="inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 transition"
-    >
-      Belanja Sekarang
-    </a>
-  </div>
-
-  {/* 2) Chips Kategori */}
-  <div className="flex flex-wrap items-center gap-2">
-    <button
-      type="button"
-      className="px-3 h-9 rounded-full border bg-white text-slate-700 hover:bg-slate-50"
-      onClick={() => document.getElementById('catalog')?.scrollIntoView({behavior:'smooth'})}
-    >
-      Serba 5k
-    </button>
-    <button
-      type="button"
-      className="px-3 h-9 rounded-full border bg-white text-slate-700 hover:bg-slate-50"
-      onClick={() => document.getElementById('catalog')?.scrollIntoView({behavior:'smooth'})}
-    >
-      Paket 10k
-    </button>
-    <button
-      type="button"
-      className="px-3 h-9 rounded-full border bg-white text-slate-700 hover:bg-slate-50"
-      onClick={() => document.getElementById('catalog')?.scrollIntoView({behavior:'smooth'})}
-    >
-      Siap masak
-    </button>
-
-    {/* info kecil di kanan */}
-    <div className="flex items-center gap-1 text-xs text-slate-500 ml-auto">
-      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor"><path d="M3 3h18v13H3zM8 21h8M12 16v5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-      Gratis ongkir min Rp 30.000
-    </div>
-  </div>
-
-  {/* 3) Visual Pendek (catchy copy) */}
-  <div className="rounded-2xl border bg-white shadow-sm/50 p-3 md:p-4 flex items-center gap-3">
-    <div className="text-3xl md:text-4xl select-none" aria-hidden="true">🥬</div>
-    <div className="flex-1 min-w-0">
-      <div className="text-sm md:text-base font-semibold text-slate-800">
-        Coba 1x, pasti repeat order <span aria-hidden="true">😉</span>
-      </div>
-      <div className="text-xs md:text-sm text-slate-500">
-        Fresh setiap hari, kurasi ketat, dikirim cepat. Bikin masak harian jadi gampang & hemat.
-      </div>
-    </div>
-    <a
-      href="#catalog"
-      className="hidden sm:inline-flex items-center rounded-xl px-3 py-1.5 text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 transition"
-    >
-      Lihat Katalog
-    </a>
-  </div>
-
-</div>
-
-
+            
             <form onSubmit={handleSearchSubmit} className="w-full md:flex-1">
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -295,9 +224,46 @@ export default function SayurSerbaLima() {
       </header>
 
       {/* Hero */}
-      <section className="mx-auto max-w-6xl px-4 pt-10">
-        <div className="grid md:grid-cols-2 gap-6 items-center">
-          <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{duration:0.5}}>
+<section className="mx-auto max-w-6xl px-4 pt-10">
+  <div className="grid md:grid-cols-2 gap-6 items-center">
+    {/* Kolom kiri — judul & paragraf (biarkan seperti sekarang) */}
+    <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{duration:0.5}}>
+      {/* ...judul, paragraf, badge... */}
+    </motion.div>
+
+    {/* Kolom kanan — GANTI jadi relative, lalu tambahkan Visual di sini */}
+    <motion.div
+      initial={{opacity:0, y:20}}
+      animate={{opacity:1, y:0}}
+      transition={{duration:0.6}}
+      className="relative md:justify-self-end"
+    >
+      {/* >>> VISUAL KECIL DI POJOK KANAN-ATAS <<< */}
+      <div className="hidden md:block absolute -top-6 right-0 md:top-0 md:-right-6 z-10">
+        <div className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-white/80 backdrop-blur border shadow-sm">
+          <span className="text-2xl">🥬</span>
+          <div className="leading-tight">
+            <div className="font-semibold">Coba 1x, pasti repeat 😉</div>
+            <div className="text-xs text-slate-500">Fresh harian • kurasi ketat • antar cepat</div>
+          </div>
+          <button
+            onClick={() => document.getElementById("catalog")?.scrollIntoView({behavior:"smooth"})}
+            className="ml-2 text-xs px-3 py-1 rounded-xl bg-emerald-600 text-white"
+          >
+            Lihat Katalog
+          </button>
+        </div>
+      </div>
+      {/* <<< END VISUAL >>> */}
+
+      {/* Grid gambar (biarkan seperti semula) */}
+      <div className="relative grid grid-cols-3 gap-3 mt-10 md:mt-14">
+        {/* ...map products.slice(0,6) ... */}
+      </div>
+    </motion.div>
+  </div>
+</section>
+
             <h1 className="text-3xl md:text-5xl font-extrabold leading-tight">
               Sayur Fresh Serba {toIDR(basePrice)}<br/>Gaya Startup, Harga Merakyat.
             </h1>
