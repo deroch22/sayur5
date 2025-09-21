@@ -396,46 +396,56 @@ const subtotal = useMemo(() => {
                       />
                     </div>
                   </CardHeader>
-                  <CardContent className="p-4">
-                    <CardTitle className="text-base font-semibold leading-tight">{p.name || p.id}</CardTitle>
-                    <div className="text-xs text-slate-500 mt-1 line-clamp-2">{p.desc || "—"}</div>
-                    <div className="mt-3 flex items-center justify-between">
-                      <div className="mt-3 flex items-center justify-between">
-                        <div className="font-extrabold">{toIDR(priceOf(p, basePrice))}</div>
-                        <div className="text-xs text-slate-500">Stok: {Number.isFinite(+p.stock) ? +p.stock : 20}</div>
-                      </div>
-  
-                        <div className="font-extrabold">{toIDR(priceOf(p, basePrice))}</div>
-                      )}
-                      <div className="text-xs text-slate-500">
-                        {p.category && normalizeCategory(p.category) === "serba5k" ? "250gr" :
-                         p.category && normalizeCategory(p.category) === "siapMasak" ? "1 paket" : ""}
-                      </div>
-                    </div>
+                 <CardContent className="p-4">
+  <CardTitle className="text-base font-semibold leading-tight">
+    {p.name || p.id}
+  </CardTitle>
 
+  <div className="text-xs text-slate-500 mt-1 line-clamp-2">
+    {p.desc || "—"}
+  </div>
 
-                  <div className="mt-1">
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-                      {catLabel(normalizeCategory(p.category))}
-                    </span>
-                  </div>
+  {/* Harga + stok + (opsional) berat */}
+  <div className="mt-3 flex items-center justify-between gap-3">
+    <div className="font-extrabold whitespace-nowrap">
+      {toIDR(priceOf(p, basePrice))}
+    </div>
+    <div className="text-xs text-slate-500 flex items-center gap-2">
+      <span>Stok: {Number.isFinite(+p.stock) ? +p.stock : 0}</span>
+      {p.weight && <span>• {p.weight}</span>}
+    </div>
+  </div>
 
-                    
-                    <div className="mt-3 flex gap-2">
-                      <Button className="rounded-xl flex-1" onClick={() => add(p.id)}>Tambah</Button>
-                      {cart[p.id] ? (
-                        <div className="flex items-center border rounded-xl overflow-hidden">
-                          <Button size="icon" variant="ghost" onClick={() => sub(p.id)}><Minus className="w-4 h-4" /></Button>
-                          <div className="px-2 w-8 text-center font-semibold">{cart[p.id]}</div>
-                          <Button size="icon" variant="ghost" onClick={() => add(p.id)}><Plus className="w-4 h-4" /></Button>
-                        </div>
-                      ) : (
-                        <Button variant="outline" className="rounded-xl" onClick={() => add(p.id)} size="icon">
-                          <Plus className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
+  {/* Badge kategori */}
+  <div className="mt-1">
+    <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+      {catLabel(normalizeCategory(p.category))}
+    </span>
+  </div>
+
+  {/* Tombol tambah / qty */}
+  <div className="mt-3 flex gap-2">
+    <Button className="rounded-xl flex-1" onClick={() => add(p.id)}>
+      Tambah
+    </Button>
+    {cart[p.id] ? (
+      <div className="flex items-center border rounded-xl overflow-hidden">
+        <Button size="icon" variant="ghost" onClick={() => sub(p.id)}>
+          <Minus className="w-4 h-4" />
+        </Button>
+        <div className="px-2 w-8 text-center font-semibold">{cart[p.id]}</div>
+        <Button size="icon" variant="ghost" onClick={() => add(p.id)}>
+          <Plus className="w-4 h-4" />
+        </Button>
+      </div>
+    ) : (
+      <Button variant="outline" className="rounded-xl" onClick={() => add(p.id)} size="icon">
+        <Plus className="w-4 h-4" />
+      </Button>
+    )}
+  </div>
+</CardContent>
+
                 </Card>
               </motion.div>
             ))}
@@ -805,12 +815,6 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
           </div>
         </div>
       </div>
-
-      {bundleViolation && (
-        <div className="mt-2 text-xs text-red-600">
-          Kategori <b>Ambil 3 Rp10k</b> harus total kelipatan 3 (boleh campur produk).
-        </div>
-      )}
 
       <div className="flex flex-col sm:flex-row gap-2 mt-1">
         <a
