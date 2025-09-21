@@ -34,15 +34,6 @@ export function catLabel(v) {
 // Alias lama -> standar
 const PACK_SIZE_AMBIL3 = 3;
 const PRICE_AMBIL3 = 10000;
-const UNIT_PRICE_AMBIL3  = Math.round(PACK_PRICE_AMBIL3 / PACK_SIZE_AMBIL3); // ≈ 3333
-
-function priceOf(p, basePrice) {
-  if ((p?.category || "").toLowerCase() === "ambil3") return UNIT_PRICE_AMBIL3;
-  return (typeof p?.price === "number" && p.price > 0) ? p.price : basePrice;
-}
-
-
-
 
 export function normalizeCategory(c = "") {
   const v = String(c || "").toLowerCase().trim();
@@ -76,6 +67,8 @@ const STARTER_PRODUCTS = [
 
 const computeShippingFee = (subtotal, freeMin, fee) =>
   subtotal === 0 || subtotal >= freeMin ? 0 : fee;
+
+const priceOf = (p, basePrice) => (typeof p?.price === "number" && p.price > 0 ? p.price : basePrice);
 
 const toWA = (msisdn) => {
   let d = String(msisdn || "").replace(/\D/g, "");
@@ -407,11 +400,10 @@ const subtotal = useMemo(() => {
                     <CardTitle className="text-base font-semibold leading-tight">{p.name || p.id}</CardTitle>
                     <div className="text-xs text-slate-500 mt-1 line-clamp-2">{p.desc || "—"}</div>
                     <div className="mt-3 flex items-center justify-between">
-                      {(p.category === "ambil3") && (
-                        <div className="mt-1 text-[11px] text-emerald-700">
-                          ≈ {toIDR((PACK_PRICE_AMBIL3) / PACK_SIZE_AMBIL3)} / item
-                        </div>
-                      )}
+                      <div className="mt-3 flex items-center justify-between">
+                        <div className="font-extrabold">{toIDR(priceOf(p, basePrice))}</div>
+                        <div className="text-xs text-slate-500">Stok: {Number.isFinite(+p.stock) ? +p.stock : 20}</div>
+                      </div>
   
                         <div className="font-extrabold">{toIDR(priceOf(p, basePrice))}</div>
                       )}
