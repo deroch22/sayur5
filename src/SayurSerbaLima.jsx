@@ -216,6 +216,57 @@ export default function SayurSerbaLima() {
               </div>
             </form>
 
+            {/* === Promo Banner & Quick Category Chips === */}
+<div className="mt-3">
+  {/* Banner promo utama */}
+  <div className="rounded-2xl border bg-emerald-50/60 p-3 flex items-center justify-between gap-3">
+    <div className="flex items-center gap-2 min-w-0">
+      <BadgePercent className="w-4 h-4 text-emerald-700 shrink-0" />
+      <span className="text-sm font-semibold truncate">
+        Ambil 3 cuma Rp10.000
+      </span>
+      <span className="hidden md:inline text-xs text-slate-600">
+        — stok terbatas tiap hari
+      </span>
+    </div>
+    <a
+      href="#catalog"
+      className="px-3 py-1.5 text-sm rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition"
+    >
+      Belanja Sekarang
+    </a>
+  </div>
+
+  {/* Chip kategori cepat */}
+  <div className="mt-2 flex flex-wrap items-center gap-2">
+    <a
+      href="#catalog"
+      className="px-3 py-1.5 text-sm rounded-full border bg-white hover:border-emerald-300"
+    >
+      Serba 5k
+    </a>
+    <a
+      href="#catalog"
+      className="px-3 py-1.5 text-sm rounded-full border bg-white hover:border-emerald-300"
+    >
+      Paket 10k
+    </a>
+    <a
+      href="#catalog"
+      className="px-3 py-1.5 text-sm rounded-full border bg-white hover:border-emerald-300"
+    >
+      Siap masak
+    </a>
+
+    {/* info gratis ongkir */}
+    <div className="ml-auto flex items-center gap-1 text-xs text-slate-500">
+      <Truck className="w-4 h-4" />
+      Gratis ongkir min {toIDR(freeOngkirMin)}
+    </div>
+  </div>
+</div>
+
+
             <div className="hidden md:block">
               <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
             </div>
