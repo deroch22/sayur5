@@ -224,11 +224,12 @@ export default function SayurSerbaLima() {
       </header>
 
       {/* Hero */}
+{/* Hero */}
 <section className="mx-auto max-w-6xl px-4 pt-10">
-  <div className="grid md:grid-cols-12 gap-6 items-center">
-    {/* Kiri: Judul */}
+  {/* Kolom tunggal: judul + visual di bawahnya */}
+  <div className="max-w-3xl mx-auto">
+    {/* Judul */}
     <motion.div
-      className="md:col-span-5"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
@@ -246,16 +247,16 @@ export default function SayurSerbaLima() {
       </div>
     </motion.div>
 
-    {/* Kanan: Visual (lebih besar) + grid (lebih kecil) */}
+    {/* VISUAL – center, tanpa grid */}
     <motion.div
-      className="md:col-span-7 relative"
+      className="relative mt-6"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
     >
-      {/* Pill promo – melebar */}
-      <div className="absolute -top-6 right-0 left-0 md:left-auto md:right-2 z-10 mx-auto w-max">
-        <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/90 backdrop-blur border shadow-sm">
+      {/* pill promo – dirata tengah di atas kotak */}
+      <div className="absolute left-1/2 -top-5 -translate-x-1/2 z-10">
+        <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/95 backdrop-blur border shadow-sm">
           <span className="text-2xl">🥬</span>
           <div className="leading-tight">
             <div className="font-semibold">Coba 1x, pasti repeat <span className="align-middle">😉</span></div>
@@ -272,47 +273,14 @@ export default function SayurSerbaLima() {
         </div>
       </div>
 
-      {/* VISUAL BESAR */}
+      {/* kotak visual – rata dengan lebar judul (max-w-3xl) */}
       <div className="relative rounded-[2rem] overflow-hidden bg-gradient-to-br from-emerald-100 to-emerald-50 border shadow-sm">
         <div className="absolute -inset-6 bg-emerald-200/40 blur-3xl" />
-        <div className="relative h-56 sm:h-64 md:h-72 flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-6xl md:text-7xl">🥕🥬🍅</div>
-            <div className="mt-2 text-sm md:text-base text-emerald-700 font-semibold">
-              Segarnya kerasa, harganya pas.
-            </div>
+        <div className="relative h-56 sm:h-64 md:h-72 flex flex-col items-center justify-center text-center px-6">
+          <div className="text-6xl md:text-7xl select-none">🥕 🥬 🍅</div>
+          <div className="mt-3 text-emerald-700 font-semibold md:text-lg">
+            Segarnya kerasa, harganya pas.
           </div>
-        </div>
-      </div>
-
-      {/* GRID GAMBAR (lebih kecil → 2:1 relatif terhadap visual) */}
-      <div className="mt-4">
-        <div className="grid grid-cols-3 gap-3">
-          {products.slice(0, 6).map((p) => (
-            <motion.div
-              key={p.id}
-              whileHover={{ scale: 1.04 }}
-              className="p-3 rounded-2xl bg-white shadow-sm border flex flex-col items-center"
-            >
-              <img
-                src={imgSrc(p.image)}
-                alt={p.name}
-                className="h-20 w-20 md:h-24 md:w-24 object-cover rounded-xl"
-                loading="lazy"
-                decoding="async"
-                onError={(e) => {
-                  if (!e.currentTarget.dataset.fallback) {
-                    e.currentTarget.dataset.fallback = "1";
-                    e.currentTarget.src = imgSrc("");
-                  }
-                }}
-              />
-              <div className="text-[11px] md:text-xs mt-2 text-center font-medium line-clamp-1">
-                {p.name}
-              </div>
-              <div className="text-[10px] text-slate-500">{toIDR(priceOf(p, basePrice))}</div>
-            </motion.div>
-          ))}
         </div>
       </div>
     </motion.div>
