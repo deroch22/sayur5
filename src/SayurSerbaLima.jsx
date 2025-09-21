@@ -34,8 +34,6 @@ export function catLabel(v) {
 // Alias lama -> standar
 const PACK_SIZE_AMBIL3 = 3;
 const PRICE_AMBIL3 = 10000;
-const cat = normalizeCategory(p.category);
-const isAmbil3 = (cat === "ambil3");
 
 export function normalizeCategory(c = "") {
   const v = String(c || "").toLowerCase().trim();
@@ -381,7 +379,10 @@ const subtotal = useMemo(() => {
         <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           <AnimatePresence>
              {filtered.map((p) => {
-              
+              const cat = normalizeCategory(p.category);
+              const isAmbil3 = cat === "ambil3";
+              const priceRef = priceOf(p, basePrice); // (opsional, buat display)
+
                 // harga referensi (untuk display; ambil3 akan diganti teks)
                 const priceRef = priceOf(p, basePrice);
               
