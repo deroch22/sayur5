@@ -16,11 +16,10 @@ import { imgSrc } from "@/utils/img";
 import { readJSON, writeJSON, readStr, writeStr } from "@/utils/safe";
 import { isInsideAmbarawa, reverseGeocode, AMBARAWA_CENTER } from "@/utils/geofence-ambarawa.js";
 
-
-/* ================= Helpers (global) ================= */
+/* ================= Helpers ================= */
 const DEFAULT_BASE_PRICE = 5000;
-const STORE = { lat: -7.259527, lng: 110.403026 };      // titik toko
-const PER_KM = 2500;                                    // tarif per km
+const STORE = { lat: -7.259527, lng: 110.403026 };
+const PER_KM = 2500;
 
 const to6 = (n) => {
   const x = Number(n);
@@ -31,13 +30,24 @@ const toIDR = (n) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 })
     .format(Number.isFinite(n) ? n : 0);
 
+const CATEGORY_OPTIONS = [
+  { value: "serba5k", label: "Serba Rp5.000 (250g)" },
+  { value: "ambil3", label: "Ambil 3 Rp10.000 (200g/item)" },
+  { value: "siapMasak", label: "Paket Siap Masak Rp10.000" },
+];
+
+function catLabel(v) {
+  const f = CATEGORY_OPTIONS.find((x) => x.value === v);
+  return f ? f.label : v || "-";
+}
+
 const STARTER_PRODUCTS = [
-  { id: "bayam", name: "Bayam Fresh", desc: "Dipetik pagi, siap masak bening.", stock: 50 },
-  { id: "kangkung", name: "Kangkung", desc: "Crispy untuk cah bawang.", stock: 60 },
-  { id: "wortel", name: "Wortel", desc: "Manis & renyah, cocok sop.", stock: 80 },
-  { id: "kol", name: "Kol", desc: "Segar untuk capcay.", stock: 40 },
-  { id: "tomat", name: "Tomat", desc: "Merah ranum, sambal mantap.", stock: 70 },
-  { id: "buncis", name: "Buncis", desc: "Muda & empuk.", stock: 55 },
+  { id: "bayam", name: "Bayam Fresh", desc: "Dipetik pagi, siap masak bening.", stock: 50, category: "serba5k" },
+  { id: "kangkung", name: "Kangkung", desc: "Crispy untuk cah bawang.", stock: 60, category: "serba5k" },
+  { id: "wortel", name: "Wortel", desc: "Manis & renyah, cocok sop.", stock: 80, category: "serba5k" },
+  { id: "kol", name: "Kol", desc: "Segar untuk capcay.", stock: 40, category: "ambil3" },
+  { id: "tomat", name: "Tomat", desc: "Merah ranum, sambal mantap.", stock: 70, category: "ambil3" },
+  { id: "buncis", name: "Buncis", desc: "Muda & empuk.", stock: 55, category: "siapMasak" },
 ];
 
 const computeShippingFee = (subtotal, freeMin, fee) =>
@@ -52,12 +62,13 @@ const toWA = (msisdn) => {
   else if (d.startsWith("+")) d = d.slice(1);
   return d;
 };
+
 const isValidIndoPhone = (s) => {
   const d = String(s || "").replace(/\D/g, "");
   return /^0?8\d{8,12}$/.test(d) || /^62?8\d{8,12}$/.test(d);
 };
 
-// hitung jarak (km)
+// haversine
 function toRad(d) { return (d * Math.PI) / 180; }
 function haversineKm(aLat, aLng, bLat, bLng) {
   const R = 6371;
@@ -66,38 +77,16 @@ function haversineKm(aLat, aLng, bLat, bLng) {
   return R * 2 * Math.atan2(Math.sqrt(A), Math.sqrt(1 - A));
 }
 
-// ambil posisi dengan target akurasi
-function getPrecisePosition({ timeoutMs = 30000, targetAcc = 25 } = {}) {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) { reject(new Error("no-geolocation")); return; }
-    let done = false;
-    const options = { enableHighAccuracy: true, maximumAge: 0, timeout: timeoutMs };
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        if (done) return;
-        if ((pos.coords.accuracy ?? 9999) <= targetAcc) {
-          done = true; navigator.geolocation.clearWatch(watchId); resolve(pos);
-        }
-      },
-      (err) => { if (done) return; done = true; navigator.geolocation.clearWatch(watchId); reject(err); },
-      options
-    );
-    setTimeout(() => {
-      if (done) return;
-      done = true; navigator.geolocation.clearWatch(watchId);
-      navigator.geolocation.getCurrentPosition(resolve, reject, options);
-    }, timeoutMs);
-  });
-}
-
-/* ================= Page ================= */
+/* ================= Main Page ================= */
 export default function SayurSerbaLima() {
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState(() => readJSON("sayur5.cart", {}));
   const [openCheckout, setOpenCheckout] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
 
-  // Settings (persist)
+  const [catFilter, setCatFilter] = useState("all");
+
+  // Settings
   const [freeOngkirMin, setFreeOngkirMin] = useState(() => {
     const v = parseInt(readStr("sayur5_freeMin", "30000"), 10);
     return Number.isFinite(v) ? v : 30000;
@@ -112,13 +101,12 @@ export default function SayurSerbaLima() {
   });
   const [storePhone, setStorePhone] = useState(() => readStr("sayur5_storePhone", "081233115194"));
 
-  useEffect(() => { writeJSON("sayur5.cart", cart); }, [cart]);
+    useEffect(() => { writeJSON("sayur5.cart", cart); }, [cart]);
   useEffect(() => { writeStr("sayur5_freeMin", String(freeOngkirMin)); }, [freeOngkirMin]);
   useEffect(() => { writeStr("sayur5_ongkir", String(ongkir)); }, [ongkir]);
   useEffect(() => { writeStr("sayur5_price", String(basePrice)); }, [basePrice]);
   useEffect(() => { writeStr("sayur5_storePhone", storePhone); }, [storePhone]);
 
-  // Data
   const [products, setProducts] = useState(() => readJSON("sayur5_products", STARTER_PRODUCTS));
   useEffect(() => {
     const url = import.meta.env.VITE_API_URL || "https://sayur5-bl6.pages.dev/api/products";
@@ -129,20 +117,24 @@ export default function SayurSerbaLima() {
   }, []);
 
   const [orders, setOrders] = useState(() => readJSON("sayur5_orders", []));
+
   useEffect(() => {
     setCart((c) => {
       const valid = new Set(products.map((p) => p.id));
-      const next = { ...c }; for (const id of Object.keys(next)) if (!valid.has(id)) delete next[id];
+      const next = { ...c };
+      for (const id of Object.keys(next)) if (!valid.has(id)) delete next[id];
       return next;
     });
   }, [products]);
 
-  // Derived
+  // Filtered products
   const filtered = useMemo(() => {
+    let list = products;
+    if (catFilter !== "all") list = list.filter((p) => (p.category || "serba5k") === catFilter);
     const q = (query || "").toLowerCase().trim();
-    if (!q) return products;
-    return products.filter((p) => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q));
-  }, [query, products]);
+    if (q) list = list.filter((p) => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q));
+    return list;
+  }, [query, products, catFilter]);
 
   const items = useMemo(() => {
     const entries = Object.entries(cart ?? {});
@@ -178,29 +170,7 @@ export default function SayurSerbaLima() {
   });
   const clearCart = () => setCart({});
 
-  // Checkout handler — menerima override ongkir (per-km)
-  const createOrder = (payload) => {
-    const { name, phone, address, payment, note, shipping: shippingOverride } = payload;
-    const ship = Number.isFinite(shippingOverride) ? shippingOverride : shippingFlat;
-    const total = subtotal + ship;
-
-    const order = {
-      id: `INV-${Date.now()}`,
-      date: new Date().toISOString(),
-      name, phone, address, payment, note,
-      items: items.map(({ id, name, qty, price }) => ({ id, name, qty, price })),
-      subtotal, shipping: ship, total, status: "baru",
-    };
-    const copy = products.map(p => {
-      const it = items.find(i => i.id === p.id);
-      return it ? { ...p, stock: Math.max(0, p.stock - it.qty) } : p;
-    });
-    setProducts(copy);
-    setOrders(o => [order, ...o]);
-    clearCart();
-  };
-
-  // UI
+  /* ================== UI ================== */
   const searchRef = useRef(null);
   const focusCatalog = (id) => {
     const el = document.getElementById(`prod-${id}`);
@@ -211,15 +181,13 @@ export default function SayurSerbaLima() {
       window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
       el.classList.add("ring-2", "ring-emerald-500", "rounded-xl");
       setTimeout(() => el.classList.remove("ring-2", "ring-emerald-500", "rounded-xl"), 1200);
-    } else {
-      document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
     }
   };
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     searchRef.current?.blur();
     const first = filtered[0];
-    focusCatalog(first?.id);
+    if (first) focusCatalog(first.id);
   };
 
   return (
@@ -233,7 +201,7 @@ export default function SayurSerbaLima() {
                 <div className="p-2 rounded-2xl bg-emerald-100 text-emerald-700"><Leaf className="w-5 h-5" /></div>
                 <div className="leading-tight">
                   <div className="font-bold">Sayur5</div>
-                  <div className="text-xs text-slate-500 -mt-0.5">Serba {toIDR(basePrice)} — Fresh Setiap Hari</div>
+                  <div className="text-xs text-slate-500 -mt-0.5">Segarnya Gak Bikin Kantong Kering</div>
                 </div>
               </div>
               <div className="md:hidden"><CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} /></div>
@@ -246,7 +214,6 @@ export default function SayurSerbaLima() {
                   ref={searchRef} type="search" enterKeyHint="search"
                   value={query} onChange={(e) => setQuery(e.target.value)}
                   placeholder="Cari bayam, kangkung, wortel…" className="pl-9 rounded-2xl w-full"
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSearchSubmit(e); } }}
                 />
               </div>
             </form>
@@ -255,22 +222,6 @@ export default function SayurSerbaLima() {
               <CartButton totalQty={totalQty} onOpen={() => setCartOpen(true)} />
             </div>
           </div>
-
-          {query && (
-            <ul className="mt-2 md:hidden divide-y rounded-xl border bg-white overflow-hidden">
-              {filtered.slice(0, 6).map((p) => (
-                <li key={p.id}>
-                  <button
-                    type="button" className="w-full text-left py-2 px-3"
-                    onClick={() => { searchRef.current?.blur(); focusCatalog(p.id); }}
-                  >
-                    {p.name}
-                  </button>
-                </li>
-              ))}
-              {filtered.length === 0 && <li className="py-2 px-3 text-sm text-slate-500">Tidak ada hasil.</li>}
-            </ul>
-          )}
         </div>
       </header>
 
@@ -288,30 +239,6 @@ export default function SayurSerbaLima() {
               <Badge variant="secondary" className="rounded-full">Tanpa Minimum per Item</Badge>
             </div>
           </motion.div>
-          <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{duration:0.6}} className="md:justify-self-end">
-            <div className="relative">
-              <div className="absolute -inset-4 bg-emerald-200/40 blur-2xl rounded-[2rem]"></div>
-              <div className="relative grid grid-cols-3 gap-3">
-                {products.slice(0,6).map((p)=> (
-                  <motion.div key={p.id} whileHover={{ scale: 1.04 }} className="p-4 rounded-2xl bg-white shadow-sm border flex flex-col items-center">
-                    <img
-                      src={imgSrc(p.image)} alt={p.name}
-                      className="h-28 w-28 object-cover rounded-xl"
-                      loading="lazy" decoding="async"
-                      onError={(e) => {
-                        if (!e.currentTarget.dataset.fallback) {
-                          e.currentTarget.dataset.fallback = "1";
-                          e.currentTarget.src = imgSrc("");
-                        }
-                      }}
-                    />
-                    <div className="text-xs mt-2 text-center font-medium">{p.name}</div>
-                    <div className="text-[10px] text-slate-500">{toIDR(priceOf(p, basePrice))}</div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </motion.div>
         </div>
       </section>
 
@@ -319,9 +246,20 @@ export default function SayurSerbaLima() {
       <section id="catalog" className="mx-auto max-w-6xl px-4 mt-10 mb-20">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl md:text-2xl font-bold">Katalog Hari Ini</h2>
-          <div className="hidden md:flex items-center gap-2 text-sm text-slate-500">
-            <Truck className="w-4 h-4" /> Estimasi kirim: 1–3 jam setelah pembayaran
-          </div>
+        </div>
+
+        {/* Filter Buttons */}
+        <div className="flex gap-2 mb-4">
+          {[{ v: "all", label: "Semua" }, ...CATEGORY_OPTIONS.map(o => ({ v: o.value, label: o.label }))].map(btn => (
+            <Button
+              key={btn.v}
+              variant={catFilter === btn.v ? "default" : "outline"}
+              onClick={() => setCatFilter(btn.v)}
+              className="rounded-xl"
+            >
+              {btn.label}
+            </Button>
+          ))}
         </div>
 
         <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -349,7 +287,7 @@ export default function SayurSerbaLima() {
                     <div className="text-xs text-slate-500 mt-1 line-clamp-2">{p.desc || "—"}</div>
                     <div className="mt-3 flex items-center justify-between">
                       <div className="font-extrabold">{toIDR(priceOf(p, basePrice))}</div>
-                      <div className="text-xs text-slate-500">Stok: {Number.isFinite(+p.stock) ? +p.stock : 20}</div>
+                      <div className="text-xs text-slate-500">{catLabel(p.category)}</div>
                     </div>
                     <div className="mt-3 flex gap-2">
                       <Button className="rounded-xl flex-1" onClick={() => add(p.id)}>Tambah</Button>
@@ -373,21 +311,29 @@ export default function SayurSerbaLima() {
         </div>
       </section>
 
-      {/* Footer */}
+        {/* Footer */}
       <footer className="border-t bg-white/70 backdrop-blur">
         <div className="mx-auto max-w-6xl px-4 py-8 grid md:grid-cols-3 gap-6 text-sm">
           <div>
             <div className="font-bold mb-1">Sayur5</div>
-            <div className="text-slate-500">Platform belanja sayur serba {toIDR(basePrice)}. Cepat, segar, hemat.</div>
+            <div className="text-slate-500">
+              Platform belanja sayur serba {toIDR(basePrice)}. Cepat, segar, hemat.
+            </div>
           </div>
           <div>
             <div className="font-semibold mb-2">Kontak</div>
-            <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5"/> {storePhone}</div>
-            <div className="flex items-center gap-2 mt-1"><MapPin className="w-3.5 h-3.5"/> Area layanan: Dalam kota</div>
+            <div className="flex items-center gap-2">
+              <Phone className="w-3.5 h-3.5" /> {storePhone}
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <MapPin className="w-3.5 h-3.5" /> Area layanan: Dalam kota
+            </div>
           </div>
           <div>
             <div className="font-semibold mb-2">Promo</div>
-            <div className="flex items-center gap-2"><BadgePercent className="w-3.5 h-3.5"/> Gratis ongkir min {toIDR(freeOngkirMin)}</div>
+            <div className="flex items-center gap-2">
+              <BadgePercent className="w-3.5 h-3.5" /> Gratis ongkir min {toIDR(freeOngkirMin)}
+            </div>
           </div>
         </div>
       </footer>
@@ -483,7 +429,9 @@ function CartDrawer({
         <h3 className="text-lg font-semibold mb-3">Keranjang Belanja</h3>
 
         <div className="space-y-4">
-          {list.length === 0 && <div className="text-sm text-slate-500">Keranjang kosong. Yuk pilih sayur dulu.</div>}
+          {list.length === 0 && (
+            <div className="text-sm text-slate-500">Keranjang kosong. Yuk pilih sayur dulu.</div>
+          )}
           {list.map((it) => (
             <Card key={it.id} className="rounded-2xl">
               <CardContent className="p-4 flex items-center gap-3">
@@ -493,9 +441,13 @@ function CartDrawer({
                   <div className="text-xs text-slate-500">{toIDR(it.price)} / pack</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button size="icon" variant="outline" className="rounded-full" onClick={() => sub(it.id)}><Minus className="w-4 h-4" /></Button>
+                  <Button size="icon" variant="outline" className="rounded-full" onClick={() => sub(it.id)}>
+                    <Minus className="w-4 h-4" />
+                  </Button>
                   <div className="w-8 text-center font-semibold">{it.qty}</div>
-                  <Button size="icon" className="rounded-full" onClick={() => add(it.id)}><Plus className="w-4 h-4" /></Button>
+                  <Button size="icon" className="rounded-full" onClick={() => add(it.id)}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
                 </div>
                 <div className="w-20 text-right font-semibold">{toIDR(it.price * it.qty)}</div>
               </CardContent>
@@ -504,13 +456,23 @@ function CartDrawer({
         </div>
 
         <div className="mt-6 border-t pt-4 space-y-1 text-sm">
-          <div className="flex justify-between"><span>Subtotal</span><span>{toIDR(subtotal)}</span></div>
-          <div className="flex justify-between"><span>Ongkir</span><span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span></div>
-          <div className="flex justify-between font-bold text-base"><span>Total</span><span>{toIDR(grandTotal)}</span></div>
+          <div className="flex justify-between">
+            <span>Subtotal</span><span>{toIDR(subtotal)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Ongkir</span><span>{shippingFee === 0 ? "Gratis" : toIDR(shippingFee)}</span>
+          </div>
+          <div className="flex justify-between font-bold text-base">
+            <span>Total</span><span>{toIDR(grandTotal)}</span>
+          </div>
         </div>
 
         <div className="mt-4 flex gap-2">
-          <Button className="flex-1 rounded-2xl" disabled={list.length === 0} onClick={() => { onClose(); onOpenCheckout(); }}>
+          <Button
+            className="flex-1 rounded-2xl"
+            disabled={list.length === 0}
+            onClick={() => { onClose(); onOpenCheckout(); }}
+          >
             <CreditCard className="w-4 h-4 mr-2" /> Checkout
           </Button>
           <Button variant="ghost" className="rounded-2xl" onClick={clearCart} disabled={list.length === 0}>
@@ -521,8 +483,12 @@ function CartDrawer({
         <div className="mt-8 p-3 rounded-xl bg-slate-50 text-xs">
           <div className="font-semibold mb-2">Ongkir Ditentukan Admin</div>
           <div className="grid grid-cols-2 gap-2">
-            <div className="flex items-center justify-between"><span>Min Gratis Ongkir</span><span className="font-medium">{toIDR(freeOngkirMin)}</span></div>
-            <div className="flex items-center justify-between"><span>Biaya Ongkir</span><span className="font-medium">{toIDR(ongkir)}</span></div>
+            <div className="flex items-center justify-between">
+              <span>Min Gratis Ongkir</span><span className="font-medium">{toIDR(freeOngkirMin)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Biaya Ongkir</span><span className="font-medium">{toIDR(ongkir)}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -538,7 +504,6 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
   const [locating, setLocating] = useState(false);
   const [locError, setLocError] = useState("");
   const [addrMeta, setAddrMeta] = useState(null); // {lat,lng,allowed,geocode?,source}
-  const [mapOpen, setMapOpen] = useState(false);
 
   // cache 15 menit
   useEffect(() => {
@@ -589,24 +554,6 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
     setAddrMeta(meta);
     if (!allowed) setLocError("Maaf, titik ini di luar Kecamatan Ambarawa.");
   };
-  const onPickFromMap = async (ll) => { setMapOpen(false); await applyCoords(ll.lat, ll.lng); };
-
-  // tombol gunakan lokasi (opsional)
-  async function useMyLocation() {
-    setLocError(""); setLocating(true);
-    try {
-      const posRaw = await getPrecisePosition({ timeoutMs: 20000, targetAcc: 25 });
-      const lat = posRaw.coords.latitude, lng = posRaw.coords.longitude;
-      await applyCoords(lat, lng);
-    } catch (e) {
-      if (e?.code === 1) setLocError("Izin lokasi ditolak. Izinkan akses lokasi di pengaturan browser.");
-      else if (e?.code === 2) setLocError("Lokasi tidak tersedia. Coba aktifkan GPS/High accuracy.");
-      else if (e?.code === 3) setLocError("Pengambilan lokasi timeout. Coba lagi, pindah dekat jendela/outdoor.");
-      else setLocError("Gagal ambil lokasi. Aktifkan GPS/izin lokasi lalu coba lagi.");
-    } finally {
-      setLocating(false);
-    }
-  }
 
   // --- Ongkir per-km ---
   const distKm = useMemo(() => {
@@ -646,8 +593,7 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
   }, [form, safeItems, subtotal, estShipping, localTotal, mapsPinUrl, mapsNavUrl, addrMeta, distKm]);
 
   const waLink = `https://wa.me/${toWA(storePhone)}?text=${orderText}`;
-
-  const canSubmit = Boolean(form.name && validPhone && form.address && safeItems.length > 0 && inServiceArea);
+  const canSubmit = Boolean(form.name && isValidIndoPhone(form.phone) && form.address && safeItems.length > 0 && inServiceArea);
 
   // klik WA: buka WA dulu, lalu catat order (dengan ongkir per-km)
   const handleWhatsAppClick = (e) => {
@@ -677,18 +623,14 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
           <span>No. HP</span>
           <Input
             value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            placeholder="08xxxxxxxxxx" className={`rounded-xl ${form.phone && !validPhone ? "border-red-500" : ""}`}
+            placeholder="08xxxxxxxxxx" className={`rounded-xl ${form.phone && !isValidIndoPhone(form.phone) ? "border-red-500" : ""}`}
           />
-          {form.phone && !validPhone && <div className="text-xs text-red-600 mt-1">Nomor HP tidak valid. Contoh: 0812xxxxxxx</div>}
+          {form.phone && !isValidIndoPhone(form.phone) && <div className="text-xs text-red-600 mt-1">Nomor HP tidak valid. Contoh: 0812xxxxxxx</div>}
         </label>
       </div>
 
       <label className="grid gap-1 text-sm">
-        <div className="flex items-center justify-between">
-          <span>Alamat Lengkap</span>
-          <div className="flex items-center gap-2">
-          </div>
-        </div>
+        <span>Alamat Lengkap</span>
         <Textarea
           value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })}
           placeholder="Jalan, RT/RW, Kel/Desa, Kecamatan, Kota"
@@ -744,7 +686,9 @@ function CheckoutForm({ items, subtotal, shippingFee, grandTotal, onSubmit, stor
       <div className="text-xs text-slate-500">
         *Tombol WhatsApp akan membuka chat dengan format pesanan otomatis. Layanan saat ini khusus area Ambarawa.
       </div>
-
     </div>
   );
 }
+
+
+  
