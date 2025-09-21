@@ -70,9 +70,10 @@ const computeShippingFee = (subtotal, freeMin, fee) =>
   subtotal === 0 || subtotal >= freeMin ? 0 : fee;
 
 function priceOf(p, basePrice) {
-  if (p?.category === "ambil3") return UNIT_PRICE_AMBIL3;       // harga per item khusus paket 3=10k
+  if ((p?.category || "").toLowerCase() === "ambil3") return UNIT_PRICE_AMBIL3;
   return (typeof p?.price === "number" && p.price > 0) ? p.price : basePrice;
 }
+
 
 
 const toWA = (msisdn) => {
