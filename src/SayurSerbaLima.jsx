@@ -33,7 +33,7 @@ const toIDR = (n) =>
 // ganti ini di file frontstore (SayurSerbaLima.jsx)
 const CATEGORY_OPTIONS = [
   { value: "serba5k",  label: "Serba 5k" },
-  { value: "ambil3",   label: "Paket 10k" },
+  { value: "ambil3",   label: "Triple Hemat 10k" },
   { value: "siapMasak",label: "Siap masak" },
 ];
 
