@@ -77,8 +77,6 @@ const STARTER_PRODUCTS = [
 const computeShippingFee = (subtotal, freeMin, fee) =>
   subtotal === 0 || subtotal >= freeMin ? 0 : fee;
 
-const priceOf = (p, basePrice) => (typeof p?.price === "number" && p.price > 0 ? p.price : basePrice);
-
 const toWA = (msisdn) => {
   let d = String(msisdn || "").replace(/\D/g, "");
   if (d.startsWith("0")) d = "62" + d.slice(1);
