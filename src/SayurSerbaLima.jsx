@@ -224,11 +224,11 @@ export default function SayurSerbaLima() {
       </header>
 
       {/* Hero */}
-{/* Hero */}
 <section className="mx-auto max-w-6xl px-4 pt-10">
-  <div className="grid md:grid-cols-2 gap-6 items-center">
-    {/* Kolom kiri — judul & paragraf */}
+  <div className="grid md:grid-cols-12 gap-6 items-center">
+    {/* Kiri: Judul */}
     <motion.div
+      className="md:col-span-5"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
@@ -246,19 +246,19 @@ export default function SayurSerbaLima() {
       </div>
     </motion.div>
 
-    {/* Kolom kanan — visual + grid gambar */}
+    {/* Kanan: Visual (lebih besar) + grid (lebih kecil) */}
     <motion.div
+      className="md:col-span-7 relative"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
-      className="relative md:justify-self-end"
     >
-      {/* Visual kecil di pojok kanan-atas */}
-      <div className="hidden md:block absolute -top-6 right-0 md:top-0 md:-right-6 z-10">
-        <div className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-white/80 backdrop-blur border shadow-sm">
+      {/* Pill promo – melebar */}
+      <div className="absolute -top-6 right-0 left-0 md:left-auto md:right-2 z-10 mx-auto w-max">
+        <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/90 backdrop-blur border shadow-sm">
           <span className="text-2xl">🥬</span>
           <div className="leading-tight">
-            <div className="font-semibold">Coba 1x, pasti repeat 😉</div>
+            <div className="font-semibold">Coba 1x, pasti repeat <span className="align-middle">😉</span></div>
             <div className="text-xs text-slate-500">Fresh harian • kurasi ketat • antar cepat</div>
           </div>
           <button
@@ -272,20 +272,32 @@ export default function SayurSerbaLima() {
         </div>
       </div>
 
-      {/* Grid gambar */}
-      <div className="relative">
-        <div className="absolute -inset-4 bg-emerald-200/40 blur-2xl rounded-[2rem]" />
-        <div className="relative grid grid-cols-3 gap-3 mt-10 md:mt-14">
+      {/* VISUAL BESAR */}
+      <div className="relative rounded-[2rem] overflow-hidden bg-gradient-to-br from-emerald-100 to-emerald-50 border shadow-sm">
+        <div className="absolute -inset-6 bg-emerald-200/40 blur-3xl" />
+        <div className="relative h-56 sm:h-64 md:h-72 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-6xl md:text-7xl">🥕🥬🍅</div>
+            <div className="mt-2 text-sm md:text-base text-emerald-700 font-semibold">
+              Segarnya kerasa, harganya pas.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* GRID GAMBAR (lebih kecil → 2:1 relatif terhadap visual) */}
+      <div className="mt-4">
+        <div className="grid grid-cols-3 gap-3">
           {products.slice(0, 6).map((p) => (
             <motion.div
               key={p.id}
               whileHover={{ scale: 1.04 }}
-              className="p-4 rounded-2xl bg-white shadow-sm border flex flex-col items-center"
+              className="p-3 rounded-2xl bg-white shadow-sm border flex flex-col items-center"
             >
               <img
                 src={imgSrc(p.image)}
                 alt={p.name}
-                className="h-28 w-28 object-cover rounded-xl"
+                className="h-20 w-20 md:h-24 md:w-24 object-cover rounded-xl"
                 loading="lazy"
                 decoding="async"
                 onError={(e) => {
@@ -295,7 +307,9 @@ export default function SayurSerbaLima() {
                   }
                 }}
               />
-              <div className="text-xs mt-2 text-center font-medium">{p.name}</div>
+              <div className="text-[11px] md:text-xs mt-2 text-center font-medium line-clamp-1">
+                {p.name}
+              </div>
               <div className="text-[10px] text-slate-500">{toIDR(priceOf(p, basePrice))}</div>
             </motion.div>
           ))}
