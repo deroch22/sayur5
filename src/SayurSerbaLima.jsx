@@ -25,12 +25,16 @@ export const CATEGORY_OPTIONS = [
   { value: "siapMasak", label: "Siap masak" },
 ];
 
+
 export function catLabel(v) {
   const f = CATEGORY_OPTIONS.find(x => x.value === v);
   return f ? f.label : "-";
 }
 
 // Alias lama -> standar
+const PACK_SIZE_AMBIL3 = 3;
+const PRICE_AMBIL3 = 10000;
+
 export function normalizeCategory(c = "") {
   const v = String(c || "").toLowerCase().trim();
   if (["serba5k","serba5","serba","small"].includes(v)) return "serba5k";
@@ -170,18 +174,42 @@ const filtered = useMemo(() => {
 </div>
 
 
-  const items = useMemo(() => {
-    const entries = Object.entries(cart ?? {});
-    if (!Array.isArray(products) || entries.length === 0) return [];
-    return entries
-      .map(([id, q]) => {
-        const qty = Number.parseInt(q, 10) || 0;
-        const p = products.find(x => x.id === id);
-        const price = p ? priceOf(p, basePrice) : basePrice;
-        return p ? { ...p, id, qty, price } : { id, name: "(produk tidak tersedia)", qty, price };
-      })
-      .filter(it => it.qty > 0);
-  }, [cart, products, basePrice]);
+  // items di keranjang
+const items = useMemo(() => {
+  const entries = Object.entries(cart ?? {});
+  if (!Array.isArray(products) || entries.length === 0) return [];
+  return entries
+    .map(([id, q]) => {
+      const qty = Number.parseInt(q, 10) || 0;
+      const p = products.find(x => x.id === id);
+      if (!p) return null;
+      const cat = normalizeCategory(p.category);
+
+      // harga “referensi”/display per item (untuk ambil3 hanya estimasi)
+      const price =
+        cat === "ambil3" ? Math.round(PRICE_AMBIL3 / PACK_SIZE_AMBIL3) : priceOf(p, basePrice);
+
+      return { ...p, id, qty, price, category: cat };
+    })
+    .filter(Boolean)
+    .filter(it => it.qty > 0);
+}, [cart, products, basePrice]);
+
+  const bundleViolation = useMemo(
+  () => items.some(it => it.category === "ambil3" && (it.qty % PACK_SIZE_AMBIL3 !== 0)),
+  [items]
+);
+
+// subtotal hitung paket untuk ambil3
+const subtotal = useMemo(() => {
+  return items.reduce((s, it) => {
+    if (it.category === "ambil3") {
+      return s + (it.qty / PACK_SIZE_AMBIL3) * PRICE_AMBIL3; // qty dijaga kelipatan 3 oleh validasi checkout
+    }
+    return s + it.qty * it.price;
+  }, 0);
+}, [items]);
+
 
   const subtotal = useMemo(() => items.reduce((s, it) => s + it.qty * it.price, 0), [items]);
   const shippingFlat = useMemo(() => computeShippingFee(subtotal, freeOngkirMin, ongkir), [subtotal, freeOngkirMin, ongkir]);
@@ -366,9 +394,20 @@ const filtered = useMemo(() => {
                     <CardTitle className="text-base font-semibold leading-tight">{p.name || p.id}</CardTitle>
                     <div className="text-xs text-slate-500 mt-1 line-clamp-2">{p.desc || "—"}</div>
                     <div className="mt-3 flex items-center justify-between">
-                      <div className="font-extrabold">{toIDR(priceOf(p, basePrice))}</div>
-                      <div className="text-xs text-slate-500">{catLabel(p.category)}</div>
+                      {p.category && normalizeCategory(p.category) === "ambil3" ? (
+                        <div className="text-sm leading-tight">
+                          <div className="font-semibold">Ambil {PACK_SIZE_AMBIL3} Rp {PRICE_AMBIL3.toLocaleString("id-ID")}</div>
+                          <div className="text-[11px] text-slate-500">≈ {toIDR(Math.round(PRICE_AMBIL3 / PACK_SIZE_AMBIL3))} / item</div>
+                        </div>
+                      ) : (
+                        <div className="font-extrabold">{toIDR(priceOf(p, basePrice))}</div>
+                      )}
+                      <div className="text-xs text-slate-500">
+                        {p.category && normalizeCategory(p.category) === "serba5k" ? "250gr" :
+                         p.category && normalizeCategory(p.category) === "siapMasak" ? "1 paket" : ""}
+                      </div>
                     </div>
+
 
                   <div className="mt-1">
                     <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
@@ -441,6 +480,7 @@ const filtered = useMemo(() => {
         onOpenCheckout={() => setOpenCheckout(true)}
         freeOngkirMin={freeOngkirMin}
         ongkir={ongkir}
+        bundleViolation={bundleViolation}
       />
 
       {/* Checkout */}
@@ -500,6 +540,7 @@ function CartButton({ totalQty, onOpen }) {
 function CartDrawer({
   open, onClose, items, totalQty, subtotal, shippingFee, grandTotal,
   add, sub, clearCart, onOpenCheckout, freeOngkirMin, ongkir,
+  bundleViolation,
 }) {
   if (!open) return null;
   const list = Array.isArray(items) ? items : [];
@@ -558,7 +599,7 @@ function CartDrawer({
         <div className="mt-4 flex gap-2">
           <Button
             className="flex-1 rounded-2xl"
-            disabled={list.length === 0}
+            disabled={list.length === 0 || bundleViolation}
             onClick={() => { onClose(); onOpenCheckout(); }}
           >
             <CreditCard className="w-4 h-4 mr-2" /> Checkout
