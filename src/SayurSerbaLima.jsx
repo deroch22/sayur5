@@ -30,11 +30,15 @@ const toIDR = (n) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 })
     .format(Number.isFinite(n) ? n : 0);
 
+// ganti ini di file frontstore (SayurSerbaLima.jsx)
 const CATEGORY_OPTIONS = [
-  { value: "serba5k", label: "Serba Rp5.000 (250g)" },
-  { value: "ambil3", label: "Ambil 3 Rp10.000 (200g/item)" },
-  { value: "siapMasak", label: "Paket Siap Masak Rp10.000" },
+  { value: "serba5k",  label: "Serba 5k" },
+  { value: "ambil3",   label: "Paket 10k" },
+  { value: "siapMasak",label: "Siap masak" },
 ];
+
+export const catLabel = (v) => (CATEGORY_OPTIONS.find(x => x.value === v)?.label ?? v ?? "-");
+
 
 function catLabel(v) {
   const f = CATEGORY_OPTIONS.find((x) => x.value === v);
@@ -289,6 +293,14 @@ export default function SayurSerbaLima() {
                       <div className="font-extrabold">{toIDR(priceOf(p, basePrice))}</div>
                       <div className="text-xs text-slate-500">{catLabel(p.category)}</div>
                     </div>
+
+                  <div className="mt-1">
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                      {catLabel(p.category || "serba5k")}
+                    </span>
+                  </div>
+
+                    
                     <div className="mt-3 flex gap-2">
                       <Button className="rounded-xl flex-1" onClick={() => add(p.id)}>Tambah</Button>
                       {cart[p.id] ? (
