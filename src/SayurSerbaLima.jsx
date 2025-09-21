@@ -224,11 +224,9 @@ export default function SayurSerbaLima() {
       </header>
 
       {/* Hero */}
-{/* Hero */}
 <section className="mx-auto max-w-6xl px-4 pt-10">
-  {/* Kolom tunggal: judul + visual di bawahnya */}
-  <div className="max-w-3xl mx-auto">
-    {/* Judul */}
+  <div className="grid md:grid-cols-2 gap-6 items-center">
+    {/* Kiri: judul & paragraf */}
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -247,25 +245,23 @@ export default function SayurSerbaLima() {
       </div>
     </motion.div>
 
-    {/* VISUAL – center, tanpa grid */}
+    {/* Kanan: visual (rasio 1:2 dari tinggi kolom), banner nempel di atas */}
     <motion.div
-      className="relative mt-6"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
+      className="relative md:justify-self-end w-full"
     >
-      {/* pill promo – dirata tengah di atas kotak */}
-      <div className="absolute left-1/2 -top-5 -translate-x-1/2 z-10">
-        <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/95 backdrop-blur border shadow-sm">
-          <span className="text-2xl">🥬</span>
+      {/* Banner kecil di atas kanan kolom kanan */}
+      <div className="absolute -top-6 right-0">
+        <div className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-white/90 backdrop-blur border shadow-sm">
+          <span className="text-xl">🥬</span>
           <div className="leading-tight">
-            <div className="font-semibold">Coba 1x, pasti repeat <span className="align-middle">😉</span></div>
-            <div className="text-xs text-slate-500">Fresh harian • kurasi ketat • antar cepat</div>
+            <div className="font-semibold">Coba 1x, pasti repeat <span role="img" aria-label="wink">😉</span></div>
+            <div className="text-[11px] text-slate-500">Fresh harian • kurasi ketat • antar cepat</div>
           </div>
           <button
-            onClick={() =>
-              document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" })
-            }
+            onClick={() => document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" })}
             className="ml-2 text-xs px-3 py-1 rounded-xl bg-emerald-600 text-white"
           >
             Lihat Katalog
@@ -273,19 +269,21 @@ export default function SayurSerbaLima() {
         </div>
       </div>
 
-      {/* kotak visual – rata dengan lebar judul (max-w-3xl) */}
-      <div className="relative rounded-[2rem] overflow-hidden bg-gradient-to-br from-emerald-100 to-emerald-50 border shadow-sm">
-        <div className="absolute -inset-6 bg-emerald-200/40 blur-3xl" />
-        <div className="relative h-56 sm:h-64 md:h-72 flex flex-col items-center justify-center text-center px-6">
-          <div className="text-6xl md:text-7xl select-none">🥕 🥬 🍅</div>
-          <div className="mt-3 text-emerald-700 font-semibold md:text-lg">
-            Segarnya kerasa, harganya pas.
-          </div>
+      {/* Kotak visual besar */}
+      <div className="rounded-[2rem] bg-emerald-100/40 border shadow-sm px-6 md:px-10 py-10 md:py-14">
+        <div className="flex items-center justify-center gap-6 md:gap-10 text-6xl md:text-8xl">
+          <span>🥕</span>
+          <span>🥬</span>
+          <span>🍅</span>
+        </div>
+        <div className="mt-4 md:mt-6 text-center text-emerald-700 font-semibold">
+          Segarnya kerasa, harganya pas.
         </div>
       </div>
     </motion.div>
   </div>
 </section>
+
 
 
       {/* Catalog */}
