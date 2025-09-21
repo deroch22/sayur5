@@ -224,6 +224,7 @@ export default function SayurSerbaLima() {
       </header>
 
       {/* Hero */}
+{/* Hero */}
 <section className="mx-auto max-w-6xl px-4 pt-10">
   <div className="grid md:grid-cols-2 gap-6 items-center">
     {/* Kolom kiri — judul & paragraf */}
@@ -271,7 +272,7 @@ export default function SayurSerbaLima() {
         </div>
       </div>
 
-      {/* Grid gambar seperti semula */}
+      {/* Grid gambar */}
       <div className="relative">
         <div className="absolute -inset-4 bg-emerald-200/40 blur-2xl rounded-[2rem]" />
         <div className="relative grid grid-cols-3 gap-3 mt-10 md:mt-14">
@@ -304,19 +305,6 @@ export default function SayurSerbaLima() {
   </div>
 </section>
 
-
-            <h1 className="text-3xl md:text-5xl font-extrabold leading-tight">
-              Sayur Fresh Serba {toIDR(basePrice)}<br/>Gaya Startup, Harga Merakyat.
-            </h1>
-            <p className="mt-3 text-slate-600 md:text-lg">Belanja sayur cepat, murah, dan anti ribet. Checkout dalam hitungan detik, diantar hari ini juga.</p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Badge className="rounded-full">Panen Pagi</Badge>
-              <Badge variant="outline" className="rounded-full">Kurasi Harian</Badge>
-              <Badge variant="secondary" className="rounded-full">Tanpa Minimum per Item</Badge>
-            </div>
-          </motion.div>
-        </div>
-      </section>
 
       {/* Catalog */}
       <section id="catalog" className="mx-auto max-w-6xl px-4 mt-10 mb-20">
